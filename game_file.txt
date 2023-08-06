@@ -1,0 +1,33 @@
+game TestGame start
+
+    stack Draw
+    stack Hand
+
+    card Ship start
+        int shield
+        int armour
+        int hull
+    end
+
+    card Atron Ship start
+        shield = 300
+        armour = 350
+        structure = 400
+    end
+
+    card Kestral Ship start
+        shield = 500
+        armour = 350
+        structure = 400
+    end
+
+    card Rifter Ship start
+        shield = 450
+        armour = 450
+        structure = 350
+    end
+end
+
+run TestGame start
+    create_random 100 Ship stacks.Draw
+end
