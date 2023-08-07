@@ -4,9 +4,9 @@ game TestGame start
     stack Hand
 
     card Ship start
-        int shield
-        int armour
-        int hull
+        int shield = 50
+        int armour = 50
+        int hull = 50
     end
 
     card Atron Ship start
@@ -28,6 +28,3 @@ game TestGame start
     end
 end
 
-run TestGame start
-    create_random 100 Ship stacks.Draw
-end

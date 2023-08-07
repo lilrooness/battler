@@ -24,8 +24,6 @@ enum class StackLevel {
     
     def_card,
 
-    assign_attr,
-    
     function_call,
 
 };
@@ -33,6 +31,7 @@ enum class StackLevel {
 struct AttributeDeclaration {
     std::string type;
     std::string name;
+    std::string value;
 };
 
 struct AttributeAssignment {
@@ -125,6 +124,18 @@ void ConsumeTokens(std::vector<StackLevelData> &stack, std::vector<Token>::itera
             t++;
 
             decl.name = t->text;
+
+            // check for attribute assignment here too
+            ensureNoEOF(t+1, end);
+            if ((t+1)->type == TokenType::assignment) {
+                t++;
+                ensureNoEOF(t+1, end);
+                ensureTokenType(TokenType::number, *(t+1), "Expected an integer value here");
+                t++;
+
+                decl.value = t->text;
+            }
+
             stack.back().cardDecl.attributeDeclarations.push_back(decl);
 
         } else {
@@ -141,7 +152,7 @@ void ConsumeTokens(std::vector<StackLevelData> &stack, std::vector<Token>::itera
             t++;
             
             decl.value = t->text;
-            
+
         }
 
     } else if (AtStackLevel(StackLevel::def_game, stack)) {
@@ -226,6 +237,24 @@ BattlerGame LoadGameFromTokens(std::vector<Token> &tokens) {
     while (begin != end) {
         ConsumeTokens(stack, begin, end);
     }
+
+    assert( stack.size() == 1, "done consuming tokens, but the stack size is greather than 1");
+
+    GameDeclaration decl = stack.back().gameDecl;
+
+    // at first only check for attribute declarations
+    for (auto cardDecl : decl.cardDeclarations) {
+        
+        std::vector<Attribute> attributes;
+        for (auto attributeDecl : cardDecl.attributeDeclarations) {
+            // TODO: handle attribute type resolution
+            Attribute attribute(attributeDecl.name, CardAttributeType::CAT_INT);
+            attributes.push_back(attribute);
+        }
+        CardClass cardClass(cardDecl.name, attributes);
+    }
+
+    // TODO: now process parent hierarchies and attribute assignments
 
     return game;
 };

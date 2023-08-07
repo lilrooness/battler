@@ -18,6 +18,7 @@ class Attribute {
 class CardClass {
 	public:
 		std::string name;
+		int parentIndex;
 		std::vector<Attribute> attributes;
 		CardClass(std::string name, std::vector<Attribute> attributes): name{name}, attributes{attributes} {}
 };
