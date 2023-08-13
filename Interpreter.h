@@ -268,7 +268,7 @@ BattlerGame LoadGameFromTokens(std::vector<Token> &tokens) {
 
     // now process parent hierarchies and attribute assignments
 
-    for (auto cardDecl : subclasses) {
+    for (auto& cardDecl : subclasses) {
         
         auto isClass = [cardDecl](CardClass c) {return c.name == cardDecl.parent; };
         auto parentClassPtr = std::find_if(game.cardClasses.begin(), game.cardClasses.end(), isClass);
@@ -282,7 +282,7 @@ BattlerGame LoadGameFromTokens(std::vector<Token> &tokens) {
 
         std::vector<Attribute> attributes{parentClassPtr->attributes};
         
-        for (auto attributeDecl : cardDecl.attributeDeclarations) {
+        for (auto& attributeDecl : cardDecl.attributeDeclarations) {
             
             Attribute attribute(attributeDecl.name, CardAttributeType::CAT_INT);
             attribute._int = stoi(attributeDecl.value);
@@ -296,7 +296,7 @@ BattlerGame LoadGameFromTokens(std::vector<Token> &tokens) {
             attributes.push_back(attribute);
         }
 
-        for (auto attributeAssignment : cardDecl.attributeAssignments) {
+        for (auto& attributeAssignment : cardDecl.attributeAssignments) {
                 
             auto attrExists = [attributeAssignment](Attribute a) {return a.name == attributeAssignment.name; };
             auto thisAttrPtr = std::find_if(attributes.begin(), attributes.end(), attrExists);
