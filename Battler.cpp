@@ -57,6 +57,14 @@ int main(int argc, char* argv[]) {
     try {
 
         game = LoadGameFromTokens(tokens);
+        for (auto cardClass : game.cardClasses) {
+            std::cout << cardClass.name << std::endl;
+            
+            for (auto attr: cardClass.attributes) {
+                std::cout << " - " << attr.name;
+                std::cout << " = " << attr._int << std::endl;
+            }
+        }
     } catch (UnexpectedTokenException e) {
 
         std::cout << "Error: unexpected token on line " << e.t.l << std::endl;
@@ -68,6 +76,12 @@ int main(int argc, char* argv[]) {
         std::cout << "^" << std::endl << std::endl;
         std::cout << "Reason: " << e.reason << std::endl;
 
+        return 1;
+    } catch (NameRedeclaredException e) {
+        std::cout << "Error: redeclaration of name: " << e.name << std::endl;
+        return 1;
+    } catch (NoNameException e) {
+        std::cout << "Error: " << e.name << " is not declared" << std::endl;
         return 1;
     }
 

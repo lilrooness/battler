@@ -8,13 +8,7 @@
 
 #include "Battler.h"
 #include "Parser.h"
-
-class UnexpectedTokenException {
-    public:
-        Token t;
-        std::string reason;
-        UnexpectedTokenException(Token t, std::string reason): t{t}, reason{reason} {} 
-};
+#include "interpreter_errors.h"
 
 enum class StackLevel {
 
@@ -152,6 +146,7 @@ void ConsumeTokens(std::vector<StackLevelData> &stack, std::vector<Token>::itera
             t++;
             
             decl.value = t->text;
+            stack.back().cardDecl.attributeAssignments.push_back(decl);
 
         }
 
@@ -242,19 +237,81 @@ BattlerGame LoadGameFromTokens(std::vector<Token> &tokens) {
 
     GameDeclaration decl = stack.back().gameDecl;
 
-    // at first only check for attribute declarations
+    std::vector<CardDeclaration> subclasses;
+
+
+    // at first only check for base card class declarations
     for (auto cardDecl : decl.cardDeclarations) {
         
+        if (!cardDecl.parent.empty()) {
+            subclasses.push_back(std::move(cardDecl));
+            continue;
+        }
+
         std::vector<Attribute> attributes;
-        for (auto attributeDecl : cardDecl.attributeDeclarations) {
-            // TODO: handle attribute type resolution
+        for (const auto& attributeDecl : cardDecl.attributeDeclarations) {
+            
+            // handle attribute type resolution and value if present
             Attribute attribute(attributeDecl.name, CardAttributeType::CAT_INT);
+            if (!attributeDecl.value.empty()) {
+                attribute._int = stoi(attributeDecl.value);
+            } else {
+                attribute._int = 0;
+            }
+
             attributes.push_back(attribute);
         }
+
         CardClass cardClass(cardDecl.name, attributes);
+        game.cardClasses.push_back(cardClass);
     }
 
-    // TODO: now process parent hierarchies and attribute assignments
+    // now process parent hierarchies and attribute assignments
+
+    for (auto cardDecl : subclasses) {
+        
+        auto isClass = [cardDecl](CardClass c) {return c.name == cardDecl.parent; };
+        auto parentClassPtr = std::find_if(game.cardClasses.begin(), game.cardClasses.end(), isClass);
+        
+        if (parentClassPtr == game.cardClasses.end()) {
+        
+            throw NoNameException(cardDecl.parent);
+        }
+
+        
+
+        std::vector<Attribute> attributes{parentClassPtr->attributes};
+        
+        for (auto attributeDecl : cardDecl.attributeDeclarations) {
+            
+            Attribute attribute(attributeDecl.name, CardAttributeType::CAT_INT);
+            attribute._int = stoi(attributeDecl.value);
+            auto attrExists = [attribute](Attribute a) {return a.name == attribute.name; };
+
+            if (attributes.end() != std::find_if(attributes.begin(), attributes.end(), attrExists)) {
+
+                throw NameRedeclaredException(attribute.name);
+            }
+
+            attributes.push_back(attribute);
+        }
+
+        for (auto attributeAssignment : cardDecl.attributeAssignments) {
+                
+            auto attrExists = [attributeAssignment](Attribute a) {return a.name == attributeAssignment.name; };
+            auto thisAttrPtr = std::find_if(attributes.begin(), attributes.end(), attrExists);
+            if (thisAttrPtr == attributes.end()) {
+
+                throw NoNameException(attributeAssignment.name);
+            }
+
+            thisAttrPtr->_int = stoi(attributeAssignment.value);
+        }
+
+        CardClass cardClass(cardDecl.name, attributes);
+        cardClass.parentIndex = std::distance(game.cardClasses.begin(), parentClassPtr);
+        game.cardClasses.push_back(cardClass);
+    }
 
     return game;
 };

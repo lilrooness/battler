@@ -4,27 +4,27 @@ game TestGame start
     stack Hand
 
     card Ship start
-        int shield = 50
-        int armour = 50
-        int hull = 50
+        int shield
+        int armour
+        int hull
     end
 
     card Atron Ship start
         shield = 300
         armour = 350
-        structure = 400
+        hull = 400
     end
 
     card Kestral Ship start
         shield = 500
         armour = 350
-        structure = 400
+        hull = 400
     end
 
     card Rifter Ship start
         shield = 450
         armour = 450
-        structure = 350
+        hull = 400
     end
 end
 
