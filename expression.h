@@ -56,6 +56,8 @@ Expression GetExpression(std::vector<Token>::iterator &current, const std::vecto
             if (current->text == "end") {
                 return expression;
             }
+
+            expression.children.push_back(GetExpression(current, end, ExpressionType::EXPRESSION));
         }
         else if (type == ExpressionType::GAME_DECLARATION) {
             ensureTokenType(TokenType::name, *current, "Expected end, or a legal declaration here such as 'card', 'phase', 'turn', 'setup' etc ...");
@@ -107,9 +109,9 @@ Expression GetExpression(std::vector<Token>::iterator &current, const std::vecto
                     return expression;
                 }
 
-                // else if (current->text == "int" || current->text == "bool" || current->text == "string") {
-                //     return GetExpression(current, end, ExpressionType::ATTR_DECLARATION);
-                // }
+                else if (current->text == "int" || current->text == "bool" || current->text == "string") {
+                    throw UnexpectedTokenException(*current, "Attribute Declaration isn't implemented yet ... :( ");
+                }
             }
         }
 
