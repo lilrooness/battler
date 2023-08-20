@@ -7,7 +7,7 @@
 
 #include "Battler.h"
 #include "Parser.h"
-#include "Interpreter.h"
+#include "expression.h"
 
 int main(int argc, char* argv[]) {
 
@@ -55,16 +55,7 @@ int main(int argc, char* argv[]) {
 
     BattlerGame game;
     try {
-
-        game = LoadGameFromTokens(tokens);
-        for (auto cardClass : game.cardClasses) {
-            std::cout << cardClass.name << std::endl;
-            
-            for (auto attr: cardClass.attributes) {
-                std::cout << " - " << attr.name;
-                std::cout << " = " << attr._int << std::endl;
-            }
-        }
+        GetExpression(tokens.begin(), tokens.end(), ExpressionType::EXPRESSION);
     } catch (UnexpectedTokenException e) {
 
         std::cout << "Error: unexpected token on line " << e.t.l << std::endl;

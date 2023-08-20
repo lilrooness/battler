@@ -1,0 +1,5 @@
+game EmptyGame start
+    card SomeCard start
+
+    end
+end

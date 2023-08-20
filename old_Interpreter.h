@@ -1,3 +1,14 @@
+
+/*
+*    NO LONGER IN USE
+*    ONLY KEEPING THIS AROUND FOR REFERENCE
+*/
+
+
+
+
+#pragma once
+
 #include <vector>
 #include <string>
 #include <utility>
@@ -11,15 +22,11 @@
 #include "interpreter_errors.h"
 
 enum class StackLevel {
-
     def_game_name,
     def_game_start,
     def_game,
-    
     def_card,
-
     function_call,
-
 };
 
 struct AttributeDeclaration {
@@ -90,9 +97,9 @@ void pushStackLevel(StackLevel level, std::vector<StackLevelData> &stack) {
     stack.push_back(defCardLevel);
 }
 
-void ensureNoEOF(const std::vector<Token>::iterator &t, const std::vector<Token>::iterator end) {
+void ensureNoEOF(const std::vector<Token>::iterator t, const std::vector<Token>::iterator end) {
     if (t == end) {
-        throw UnexpectedTokenException(*t, "This token cannot end a file");
+        throw UnexpectedTokenException(*(t-1), "This token cannot end a file");
     }
 }
 

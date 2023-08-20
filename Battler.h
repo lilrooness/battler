@@ -1,6 +1,7 @@
 #pragma once
 
 enum class CardAttributeType {CAT_INT, CAT_STRING, CAT_BOOL};
+enum class Visibility {HIDDEN, PRIVATE, VISIBLE};
 
 class Attribute {
 
@@ -12,7 +13,7 @@ class Attribute {
 		std::string _string;
 
 		CardAttributeType t;
-		Attribute(std::string name, CardAttributeType t): name{name}, t{t} {}  
+		Attribute(std::string name, CardAttributeType t): name{name}, t{t} {}
 };
 
 class CardClass {

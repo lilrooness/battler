@@ -1,0 +1,17 @@
+expression -> 
+    declaration
+    | foreach
+    | name
+    | literal
+    | grouping
+    | binary
+    | operator ;
+
+foreach         -> "foreach" name name "start" expression* "end" ;
+declaration     -> name name name? "start" expression* "end" ;
+name            -> TYPE_NAME ;
+literal         -> STRING | NUMBER | "true" | "false" ;
+binary          -> expression operator expression ;
+operator        -> "->" | "+" | "-" | "/" | "*" 
+                   | "==" | "!=" | "<" | "<=" | ">" | ">=" ;
+grouping        -> "(" expression ")" ;

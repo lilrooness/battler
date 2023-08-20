@@ -25,7 +25,9 @@ enum class TokenType {
 	dquote,
 	unknown,
 	comma,
-	};
+	dot,
+	move,
+};
 
 
 struct Token {
@@ -51,6 +53,11 @@ std::pair<Token, std::string::iterator> getNextToken(
 			t.text.push_back(*begin);
 		}
 		return make_pair(t, begin);
+
+	} else if (*begin == '.') {
+		t.text.push_back('.');
+		t.type = TokenType::move;
+		return make_pair(t, begin+1);
 	} else if (*begin == '=') {
 		t.text.push_back('=');
 		if (begin+1 != end && *(begin+1) == '=') {
@@ -66,6 +73,12 @@ std::pair<Token, std::string::iterator> getNextToken(
 		return make_pair(t, begin+1);
 	} else if (*begin == '-') {
 		t.text.push_back('-');
+
+		if (begin+1 != end && *(begin+1) == '>') {
+			t.text.push_back('>');
+			t.type = TokenType::move;
+			return make_pair(t, begin+2);
+		}
 		t.type = TokenType::minus;
 		return make_pair(t, begin+1);
 	} else if (*begin == '*') {
@@ -101,6 +114,10 @@ std::pair<Token, std::string::iterator> getNextToken(
 		t.type = TokenType::comma;
 		return make_pair(t, begin+1);
 	// the catch all unknown chars case
+	}else if (*begin == '.') {
+		t.text.push_back('.');
+		t.type = TokenType::dot;
+		return make_pair(t, begin+1);
 	}else if (!std::isalnum(*begin)) {
 		t.text.push_back(*begin);
 		t.type = TokenType::unknown;
@@ -143,3 +160,5 @@ std::pair<Token, std::string::iterator> getNextToken(
 
 // 	return words;
 // }
+
+

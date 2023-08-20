@@ -1,30 +1,58 @@
 game TestGame start
 
-    stack Draw
-    stack Hand
-
     card Ship start
         int shield
         int armour
         int hull
+        int attack
     end
 
     card Atron Ship start
         shield = 300
         armour = 350
         hull = 400
+        attack = 50
+    end
+    
+    card Kestral Ship start end
+    card Rifter Ship start end
+    card Apocolypse Ship start end
+    card Comet Ship start end
+
+    setup start
+        
+        players 2
+
+        visiblestack InPlay
+        hiddenstack Draw
+
+        foreach player p start
+            stack p.Hand = privatestack
+            
+            random of Ship -> Draw top 10
+            Draw -> p.Hand top 3
+        end
     end
 
-    card Kestral Ship start
-        shield = 500
-        armour = 350
-        hull = 400
+    phase DrawPhase start
+
+        Draw -> me.hand top 1
     end
 
-    card Rifter Ship start
-        shield = 450
-        armour = 450
-        hull = 400
+    phase Place start
+
+        onplace InPlay c start
+            if c == InPlay.top-1 start
+                winneris me
+            end
+        end
+
+        me.hand -> InPlay choose 1
     end
+
+    turn start
+        do Draw
+        do Place
+    end
+
 end
-
