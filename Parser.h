@@ -37,6 +37,15 @@ struct Token {
 	std::string text;
 };
 
+bool IsOperatorType(TokenType type) {
+	return 
+	   type == TokenType::divide
+	|| type == TokenType::plus
+	|| type == TokenType::minus
+	|| type == TokenType::times
+	|| type == TokenType::equality;
+}
+
 
 std::pair<Token, std::string::iterator> getNextToken(
 	std::string::iterator begin,
