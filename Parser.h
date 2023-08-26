@@ -145,7 +145,7 @@ std::pair<Token, std::string::iterator> getNextToken(
 }
 
 // I dont think I need a split function tbh, but it sure was fun writing it
-// std::vector<std::string> split(std::string line, const char delim) {
+// std::vector<std::string> split(const std::string &line, const char delim) {
 
 // 	std::vector<std::string> words;
 

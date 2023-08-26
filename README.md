@@ -14,11 +14,11 @@ Run the interpreter against a game file:
 if you try to run the `game_file.txt` currently, you may get a "not implemented yet" error like this one:
 
 ```
-Error: unexpected token on line 4
-        int shield
-________^
+Error: unexpected token on line 35
+    phase DrawPhase start
+____^
 
-Reason: Attribute Declaration isn't implemented yet ... :(
+Reason: phase declarations are not implemented yet ... :(
 ```
 
 the current game_file.txt is an experiment and doesn't really make sense as a game. Some Eve Ships are in there, but only because that's what was in my head at the time :)
@@ -28,6 +28,11 @@ the current game_file.txt is an experiment and doesn't really make sense as a ga
 
 ```
 game ColorSnap start
+
+    visiblestack InPlay
+    hiddenstack Draw
+
+    players 2
 
     card Color start
     end
@@ -39,14 +44,9 @@ game ColorSnap start
     card circle Color start end
 
     setup start
-        
-        players 2
-
-        visiblestack InPlay
-        hiddenstack Draw
 
         foreach player p start
-            stack p.Hand = privatestack
+            privatestack p.Hand
             
             random of Color -> Draw top 10
             Draw -> p.Hand top 3
