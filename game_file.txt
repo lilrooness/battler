@@ -12,7 +12,7 @@ game TestGame start
 
     card Atron Ship start
         shield = 300 + 1
-        armour = 350 * 2 - 1 + someVarName
+        armour = 350 * 2 - 1 + someVarName.x
         hull = 400 / 2 * 3
         attack = 50
     end

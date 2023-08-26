@@ -62,11 +62,6 @@ std::pair<Token, std::string::iterator> getNextToken(
 			t.text.push_back(*begin);
 		}
 		return make_pair(t, begin);
-
-	} else if (*begin == '.') {
-		t.text.push_back('.');
-		t.type = TokenType::move;
-		return make_pair(t, begin+1);
 	} else if (*begin == '=') {
 		t.text.push_back('=');
 		if (begin+1 != end && *(begin+1) == '=') {

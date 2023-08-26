@@ -39,6 +39,7 @@ enum class ExpressionType {
     GAME_DECLARATION,
     SETUP_DECLARATION,
     FOREACHPLAYER_DECLARATION,
+    FOREACHPLAYER_IDENTIFIER_DECLARATION,
     UNKNOWN,
 };
 
@@ -65,6 +66,24 @@ ExpressionType GetExpressionTypeFromOperatorTokenType(TokenType type) {
         case TokenType::equality: return ExpressionType::EQUALITY_TEST;
         default: return ExpressionType::UNKNOWN;
     }
+}
+
+std::vector<Token> GetIdentifierTokens(std::vector<Token>::iterator &current, const std::vector<Token>::iterator end) {
+
+    std::vector<Token> tokens;
+
+    while (current != end) {
+
+        ensureTokenType(TokenType::name, *current, "identifiers must be names");
+        tokens.push_back(*current);
+
+        if ((current + 1) != end && (current+1)->type == TokenType::dot) {
+            current+=2;
+        } else {
+            return tokens;
+        }
+    }
+    throw UnexpectedTokenException(*(current-1), "Unexpected end to token stream");
 }
 
 std::vector<Expression> GetBlock(std::vector<Token>::iterator &current, const std::vector<Token>::iterator end) {
@@ -112,7 +131,8 @@ Expression GetAttrDeclarationExpression(std::vector<Token>::iterator &current, c
 
     ensureNoEOF(++current, end);
     ensureTokenType(TokenType::name, *current, "Expected an attribute name here EG 'x', 'HP', 'myAttributeName'. This is not a valid name");
-    auto nameDeclarationExpression = Expression(ExpressionType::ATTR_NAME_DECLARATION, {*current});
+    auto nameDeclarationExpression = Expression(ExpressionType::ATTR_NAME_DECLARATION, {});
+    nameDeclarationExpression.tokens = GetIdentifierTokens(current, end);
 
     attrDeclaration.children.push_back(std::move(typeSpecifierExpression));
     attrDeclaration.children.push_back(std::move(nameDeclarationExpression));
@@ -126,12 +146,16 @@ Expression GetFactorExpression(std::vector<Token>::iterator &current, const std:
 
     if (current->type == TokenType::number || current->type == TokenType::name) {
         
+        std::vector<Token> identifierTokens;
+        if (current->type == TokenType::name) {
+            identifierTokens = GetIdentifierTokens(current, end);
+        }
+
         ensureNoEOF(current+1, end);
         if (IsOperatorType((current+1)->type)) {
-            
-            auto leftFactor = Expression(ExpressionType::FACTOR, {*current});
-            
             current++;
+            auto leftFactor = Expression(ExpressionType::FACTOR, identifierTokens);
+            
             auto expressionType = GetExpressionTypeFromOperatorTokenType(current->type);
             if (expressionType == ExpressionType::UNKNOWN) {
                 throw UnexpectedTokenException(*current, "Unsupported Operator");
@@ -140,8 +164,7 @@ Expression GetFactorExpression(std::vector<Token>::iterator &current, const std:
             expression.type = expressionType;
             expression.tokens.push_back(*current);
 
-            ensureNoEOF(current+1, end);
-            current++;
+            ensureNoEOF(++current, end);
 
             auto rightFactor = GetFactorExpression(current, end);
 
@@ -150,7 +173,7 @@ Expression GetFactorExpression(std::vector<Token>::iterator &current, const std:
 
         } else {
             expression.type = ExpressionType::FACTOR;
-            expression.tokens.push_back(*current);
+            expression.tokens = identifierTokens;
         }
     } else {
         throw UnexpectedTokenException(*current, "expected a value or a var name here");
@@ -167,7 +190,7 @@ Expression GetAssignmentExpression(std::vector<Token>::iterator &current, const 
     Expression assignmentTarget;
     assignmentTarget.type = ExpressionType::ASSIGNMENT_TARGET;
     ensureTokenType(TokenType::name, *leftAccumulationStart, "Expected a name here as the target of an assignment");
-    assignmentTarget.tokens.push_back(*leftAccumulationStart);
+    assignmentTarget.tokens = GetIdentifierTokens(leftAccumulationStart, end);
     leftAccumulationStart++;
 
     if (leftAccumulationStart != current) {
@@ -220,21 +243,24 @@ Expression GetSetupExpression(std::vector<Token>::iterator &current, const std::
     return expr;
 }
 
-// Expression GetForEachPlayerExpression(std::vector<Token>::iterator &current, const std::vector<Token>::iterator end) {
-//     ensureTokenTypeAndText(TokenType::name, "foreachplayer", *current, "foreachplayer expected for this kind of loop");
-//     ensureNoEOF(++current, end);
-//     ensureTokenType(TokenType::name, *current, "expected each player identifier here");
-//     ensureNoEOF(++current, end);
-//     ensureTokenTypeAndText(TokenType::name, "start", *current, "expected 'start' here");
-//     ensureNoEOF(++current, end);
+Expression GetForEachPlayerExpression(std::vector<Token>::iterator &current, const std::vector<Token>::iterator end) {
+    ensureTokenTypeAndText(TokenType::name, "foreachplayer", *current, "foreachplayer expected for this kind of loop");
+    ensureNoEOF(++current, end);
+    ensureTokenType(TokenType::name, *current, "expected each player identifier here");
+    
+    Expression identExpr(ExpressionType::FOREACHPLAYER_IDENTIFIER_DECLARATION, {*current});
 
-//     Expression expr;
-//     expr.type = ExpressionType::FOREACHPLAYER_DECLARATION;
-//     expr.children = GetBlock(current, end);
+    ensureNoEOF(++current, end);
+    ensureTokenTypeAndText(TokenType::name, "start", *current, "expected 'start' here");
+    ensureNoEOF(++current, end);
 
-//     return expr;
-// }
- 
+    Expression expr;
+    expr.type = ExpressionType::FOREACHPLAYER_DECLARATION;
+    expr.children = GetBlock(current, end);
+    expr.children.push_back(identExpr);
+
+    return expr;
+}
 
 Expression GetExpression(std::vector<Token>::iterator &current, const std::vector<Token>::iterator end) {
 
@@ -264,8 +290,7 @@ Expression GetExpression(std::vector<Token>::iterator &current, const std::vecto
                 throw UnexpectedTokenException(*current, "turn declarations are not implemented yet ... :(");
             }
             else if (current->text == "foreachplayer") {
-                throw UnexpectedTokenException(*current, "turn declarations are not implemented yet ... :(");
-                // return GetForEachPlayerExpression(current, end);
+                return GetForEachPlayerExpression(current, end);
             }
             else if ((current+1) !=end && (current+1)->type == TokenType::name) {
                 return GetAttrDeclarationExpression(current, end);
