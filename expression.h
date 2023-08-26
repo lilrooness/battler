@@ -118,7 +118,6 @@ Expression GetFactorExpression(std::vector<Token>::iterator &current, const std:
             
             auto leftFactor = Expression(ExpressionType::FACTOR, {*current});
             
-            // ensureNoEOF(current+2, end);
             current++;
             auto expressionType = GetExpressionTypeFromOperatorTokenType(current->type);
             if (expressionType == ExpressionType::UNKNOWN) {
