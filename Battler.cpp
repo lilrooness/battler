@@ -55,7 +55,7 @@ int main(int argc, char* argv[]) {
 
     BattlerGame game;
     try {
-        GetExpression(tokens.begin(), tokens.end(), ExpressionType::EXPRESSION);
+        GetExpression(tokens.begin(), tokens.end());
     } catch (UnexpectedTokenException e) {
 
         std::cout << "Error: unexpected token on line " << e.t.l << std::endl;

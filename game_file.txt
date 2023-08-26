@@ -1,5 +1,8 @@
 game TestGame start
 
+    visiblestack InPlay
+    hiddenstack Draw
+
     card Ship start
         int shield
         int armour
@@ -20,14 +23,9 @@ game TestGame start
     card Comet Ship start end
 
     setup start
-        
-        players 2
 
-        visiblestack InPlay
-        hiddenstack Draw
-
-        foreach player p start
-            stack p.Hand = privatestack
+        foreachplayer p start
+            privatestack p.Hand
             
             random of Ship -> Draw top 10
             Draw -> p.Hand top 3
