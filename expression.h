@@ -47,6 +47,8 @@ enum class ExpressionType {
     STACK_TARGET_BOTTOM,
     STACK_TARGET_TOP,
     STACK_TARGET_CHOOSE,
+    PHASE_DECLARATION,
+    TURN_DECLARATION,
     UNKNOWN,
 };
 
@@ -340,6 +342,21 @@ Expression GetMoveExpression(std::vector<Token>::iterator &current, const std::v
     return moveExpr;
 }
 
+Expression GetPhaseDeclarationExpression(std::vector<Token>::iterator &current, const std::vector<Token>::iterator end) {
+    ensureNoEOF(++current, end);
+    ensureTokenType(TokenType::name, *current, "Expected name of phase declared here");
+
+    Expression expr(ExpressionType::PHASE_DECLARATION, {*current});
+    ensureNoEOF(++current, end);
+
+    ensureTokenTypeAndText(TokenType::name, "start", *current, "expected 'start' here");
+    ensureNoEOF(++current, end);
+
+    expr.children = GetBlock(current, end);
+
+    return expr;
+}
+
 Expression GetExpression(std::vector<Token>::iterator &current, const std::vector<Token>::iterator end) {
 
     Expression expression;
@@ -358,18 +375,31 @@ Expression GetExpression(std::vector<Token>::iterator &current, const std::vecto
             else if (current->text == "setup") {
                 return GetSetupExpression(current, end);
             }
-            else if (current->text == "players") {
-                throw UnexpectedTokenException(*current, "player declarations are not implemented yet ... :(");
-            }
             else if(current->text == "phase") {
-                throw UnexpectedTokenException(*current, "phase declarations are not implemented yet ... :(");
-            }
-            else if(current->text == "turn") {
-                throw UnexpectedTokenException(*current, "turn declarations are not implemented yet ... :(");
+                return GetPhaseDeclarationExpression(current, end);
             }
             else if (current->text == "foreachplayer") {
                 return GetForEachPlayerExpression(current, end);
             }
+            else if (current->text == "onplace") {
+                throw UnexpectedTokenException(*current, "onplace declarations are not implemented yet ... :(");
+            }
+            else if(current->text == "turn") {
+                throw UnexpectedTokenException(*current, "turn declarations are not implemented yet ... :(");
+            }
+            else if (current->text == "if") {
+                throw UnexpectedTokenException(*current, "if declarations are not implemented yet ... :(");
+            }
+            else if (current->text == "winneris") {
+                throw UnexpectedTokenException(*current, "winneris declarations are not implemented yet ... :(");
+            }
+            else if (current->text == "do") {
+                throw UnexpectedTokenException(*current, "do declarations are not implemented yet ... :(");
+            }
+            else if (current->text == "players") {
+                throw UnexpectedTokenException(*current, "player declarations are not implemented yet ... :(");
+            }
+            // these are part of larger expressions and should be accumulated before evaluation
             else if (current->text == "random") {}
             else if ((current+1) !=end && (current+1)->type == TokenType::name) {
                 return GetAttrDeclarationExpression(current, end);
