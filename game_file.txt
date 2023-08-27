@@ -2,6 +2,7 @@ game TestGame start
 
     visiblestack InPlay
     hiddenstack Draw
+    players 2 + 3
 
     card Ship start
         int shield

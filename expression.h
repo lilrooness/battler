@@ -48,7 +48,14 @@ enum class ExpressionType {
     STACK_TARGET_TOP,
     STACK_TARGET_CHOOSE,
     PHASE_DECLARATION,
+    ONPLACE_DECLARATION,
+    ONPLACE_STACK_DECLARATION,
+    ONPLACE_IDENTIFIER_DECLARATION,
+    IF_DECLARATION,
     TURN_DECLARATION,
+    WINER_DECLARATION,
+    DO_DECLARATION,
+    PLAYERS_DECLARATION,
     UNKNOWN,
 };
 
@@ -349,10 +356,100 @@ Expression GetPhaseDeclarationExpression(std::vector<Token>::iterator &current, 
     Expression expr(ExpressionType::PHASE_DECLARATION, {*current});
     ensureNoEOF(++current, end);
 
-    ensureTokenTypeAndText(TokenType::name, "start", *current, "expected 'start' here");
+    ensureTokenTypeAndText(TokenType::name, "start", *current, "Expected 'start' here");
     ensureNoEOF(++current, end);
 
     expr.children = GetBlock(current, end);
+
+    return expr;
+}
+
+Expression GetOnPlaceExpression(std::vector<Token>::iterator &current, const std::vector<Token>::iterator end) {
+    Expression expr(ExpressionType::ONPLACE_DECLARATION, {*current});
+
+    ensureNoEOF(++current, end);
+    ensureTokenType(TokenType::name, *current, "Expected name of target stack here");
+
+    auto stackIdentifierTokens = GetIdentifierTokens(current, end);
+
+    auto stackNameDeclaration = Expression(ExpressionType::ONPLACE_STACK_DECLARATION, stackIdentifierTokens);
+    
+    ensureNoEOF(++current, end);
+    ensureTokenType(TokenType::name, *current, "Expected name of card identifier here");
+
+    auto cardIdentifier = Expression(ExpressionType::ONPLACE_IDENTIFIER_DECLARATION, {*current});
+    
+    ensureNoEOF(++current, end);
+    ensureTokenTypeAndText(TokenType::name, "start", *current, "Expected 'start' here");
+    
+    ensureNoEOF(++current, end);
+    expr.children = GetBlock(current, end);
+    expr.children.push_back(std::move(stackNameDeclaration));
+    expr.children.push_back(std::move(cardIdentifier));
+
+    return expr;
+}
+
+Expression GetIfExpression(std::vector<Token>::iterator &current, const std::vector<Token>::iterator end) {
+
+    Expression expr(ExpressionType::IF_DECLARATION, {*current});
+
+    ensureNoEOF(++current, end);
+    
+    if (current->text == "start") {
+        throw UnexpectedTokenException(*current, "expected boolean expression here");
+    }
+
+    auto booleanExpression = GetFactorExpression(current, end);
+    ensureNoEOF(++current, end);
+    ensureTokenTypeAndText(TokenType::name, "start", *current, "Expected 'start' here");
+
+    ensureNoEOF(++current, end);
+    expr.children = GetBlock(current, end);
+    expr.children.push_back(std::move(booleanExpression));
+
+    return expr;
+}
+
+Expression GetWinnerIsExpression(std::vector<Token>::iterator &current, const std::vector<Token>::iterator end) {
+
+    Expression expr(ExpressionType::WINER_DECLARATION, {});
+    ensureNoEOF(++current, end);
+
+    expr.tokens = GetIdentifierTokens(current, end);
+
+    return expr;
+}
+
+Expression GetTurnExpression(std::vector<Token>::iterator &current, const std::vector<Token>::iterator end) {
+    Expression expr(ExpressionType::TURN_DECLARATION, {*current});
+    
+    ensureNoEOF(++current, end);
+    ensureTokenTypeAndText(TokenType::name, "start", *current, "Expected 'start' here");
+
+    ensureNoEOF(++current, end);
+    expr.children = GetBlock(current, end);
+
+    return expr;
+}
+
+Expression GetDoExpression(std::vector<Token>::iterator &current, const std::vector<Token>::iterator end) {
+    Expression expr(ExpressionType::DO_DECLARATION, {});
+
+    ensureNoEOF(++current, end);
+    ensureTokenType(TokenType::name, *current, "Expected phase name here");
+
+    expr.tokens.push_back(*current);
+
+    return expr;
+}
+
+Expression GetPlayersExpression(std::vector<Token>::iterator &current, const std::vector<Token>::iterator end) {
+    Expression expr(ExpressionType::PLAYERS_DECLARATION, {*current});
+
+    ensureNoEOF(++current, end);
+    
+    expr.children.push_back(GetFactorExpression(current, end));
 
     return expr;
 }
@@ -382,24 +479,25 @@ Expression GetExpression(std::vector<Token>::iterator &current, const std::vecto
                 return GetForEachPlayerExpression(current, end);
             }
             else if (current->text == "onplace") {
-                throw UnexpectedTokenException(*current, "onplace declarations are not implemented yet ... :(");
-            }
-            else if(current->text == "turn") {
-                throw UnexpectedTokenException(*current, "turn declarations are not implemented yet ... :(");
+                return GetOnPlaceExpression(current, end);
             }
             else if (current->text == "if") {
-                throw UnexpectedTokenException(*current, "if declarations are not implemented yet ... :(");
+                return GetIfExpression(current, end);
             }
             else if (current->text == "winneris") {
-                throw UnexpectedTokenException(*current, "winneris declarations are not implemented yet ... :(");
+                return GetWinnerIsExpression(current, end);
+            }
+            else if(current->text == "turn") {
+                return GetTurnExpression(current, end);
             }
             else if (current->text == "do") {
-                throw UnexpectedTokenException(*current, "do declarations are not implemented yet ... :(");
+                return GetDoExpression(current, end);
             }
             else if (current->text == "players") {
-                throw UnexpectedTokenException(*current, "player declarations are not implemented yet ... :(");
+                return GetPlayersExpression(current, end);
             }
-            // these are part of larger expressions and should be accumulated before evaluation
+            // these keywords are part of larger expressions and should be accumulated before evaluation
+            // (this allows them not to be immediately evauated as an attribute declaration, even if `random StacName ...` looks like one)
             else if (current->text == "random") {}
             else if ((current+1) !=end && (current+1)->type == TokenType::name) {
                 return GetAttrDeclarationExpression(current, end);
