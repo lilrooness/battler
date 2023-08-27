@@ -2,7 +2,7 @@
 
 ### A language for card games
 
-Battler is an card-game interpreter, an example of a "color snap" game can 
+Battler is an interpreter and card-game engine, an example of a "color snap" game can 
 be seen below.
 
 Use this project's simple CMakeLists.txt to build it, although it doesn't link
