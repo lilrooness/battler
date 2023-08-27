@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
                 
                 t.l = lines.size();
                 t.c = std::distance(line.begin(), start);
-                tokens.push_back(t);
+                tokens.push_back(std::move(t));
             }
             
             start = resPair.second;
