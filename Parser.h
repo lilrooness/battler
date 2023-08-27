@@ -27,6 +27,7 @@ enum class TokenType {
 	comma,
 	dot,
 	move,
+	move_under,
 };
 
 
@@ -80,6 +81,12 @@ std::pair<Token, std::string::iterator> getNextToken(
 
 		if (begin+1 != end && *(begin+1) == '>') {
 			t.text.push_back('>');
+
+			if (begin+2 != end && *(begin+2) == '_') {
+				t.type = TokenType::move_under;
+				return make_pair(t, begin+3);
+			}
+
 			t.type = TokenType::move;
 			return make_pair(t, begin+2);
 		}

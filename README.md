@@ -48,7 +48,7 @@ game ColorSnap start
         foreach player p start
             privatestack p.Hand
             
-            random of Color -> Draw top 10
+            random Color -> Draw top 10
             Draw -> p.Hand top 3
         end
     end

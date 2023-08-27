@@ -27,8 +27,8 @@ game TestGame start
         foreachplayer p start
             privatestack p.Hand
             
-            random of Ship -> Draw top 10
-            Draw -> p.Hand top 3
+            random Ship -> Draw top 10
+            Draw ->_ p.Hand bottom 3
         end
     end
 

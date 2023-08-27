@@ -40,6 +40,13 @@ enum class ExpressionType {
     SETUP_DECLARATION,
     FOREACHPLAYER_DECLARATION,
     FOREACHPLAYER_IDENTIFIER_DECLARATION,
+    STACK_MOVE,
+    STACK_MOVE_UNDER,
+    STACK_MOVE_SOURCE,
+    STACK_MOVE_RANDOM_SOURCE,
+    STACK_TARGET_BOTTOM,
+    STACK_TARGET_TOP,
+    STACK_TARGET_CHOOSE,
     UNKNOWN,
 };
 
@@ -186,6 +193,7 @@ Expression GetAssignmentExpression(std::vector<Token>::iterator &current, const 
     
     Expression expression;
     expression.type = ExpressionType::ATTR_ASSIGNMENT;
+    expression.tokens.push_back(*current);
 
     Expression assignmentTarget;
     assignmentTarget.type = ExpressionType::ASSIGNMENT_TARGET;
@@ -262,6 +270,76 @@ Expression GetForEachPlayerExpression(std::vector<Token>::iterator &current, con
     return expr;
 }
 
+Expression GetStackMoveSourceExpression(std::vector<Token>::iterator &current, const std::vector<Token>::iterator end) {
+    ensureTokenType(TokenType::name, *current, "this is not a valid left side move expression");
+
+    Expression expr;
+
+    if (current->text == "random") {
+        ensureNoEOF(++current, end);
+        expr.tokens = GetIdentifierTokens(current, end);;
+        expr.type = ExpressionType::STACK_MOVE_RANDOM_SOURCE;
+        return expr;
+    }
+
+    expr.type = ExpressionType::STACK_MOVE_SOURCE;
+    expr.tokens = GetIdentifierTokens(current, end);
+    return expr;
+}
+
+Expression GetStackMoveTargetExpression(std::vector<Token>::iterator &current, const std::vector<Token>::iterator end) {
+    ensureTokenType(TokenType::name, *current, "this is not a valid left side move expression");
+
+    Expression expr;
+    
+    auto stackIdentifierTokens = GetIdentifierTokens(current, end);
+    Expression stackIdentifierExpr(ExpressionType::IDENTIFIER, std::move(stackIdentifierTokens));
+
+    ensureNoEOF(++current, end);
+    ensureTokenType(TokenType::name, *current, "Expected one of 'choose', 'top' or 'bottom' here");
+
+    if (current->text == "choose") {
+        expr.type = ExpressionType::STACK_TARGET_CHOOSE;
+    } else if(current->text == "top") {
+        expr.type = ExpressionType::STACK_TARGET_TOP;
+    } else if(current->text == "bottom") {
+        expr.type = ExpressionType::STACK_TARGET_BOTTOM;
+    } else {
+        throw UnexpectedTokenException(*current, "Expected one of 'choose', 'top' or 'bottom' here");
+    }
+    expr.tokens.push_back(*current);
+
+    ensureNoEOF(++current, end);
+
+    auto factorExpression = GetFactorExpression(current, end);
+
+    expr.children.push_back(std::move(stackIdentifierExpr));
+    expr.children.push_back(std::move(factorExpression));
+
+    return expr;
+}
+
+Expression GetMoveExpression(std::vector<Token>::iterator &current, const std::vector<Token>::iterator end, std::vector<Token>::iterator &leftAccumulationStart, ExpressionType moveType) {
+    if (current->type != TokenType::move && current->type != TokenType::move_under) {
+        throw UnexpectedTokenException(*current, "move expressions must contain a move operator '->' or '->_'");
+    }
+
+    Expression moveExpr(moveType, {*current});
+    auto leftExpr = GetStackMoveSourceExpression(leftAccumulationStart, end);
+    ensureNoEOF(++leftAccumulationStart, end);
+    if (leftAccumulationStart != current) {
+        throw UnexpectedTokenException(*leftAccumulationStart, "You can't have more than one expression on the left hand side of a move");
+    }
+    ensureNoEOF(++current, end);
+    auto rightExpr = GetStackMoveTargetExpression(current, end);
+
+
+    moveExpr.children.push_back(std::move(leftExpr));
+    moveExpr.children.push_back(std::move(rightExpr));
+
+    return moveExpr;
+}
+
 Expression GetExpression(std::vector<Token>::iterator &current, const std::vector<Token>::iterator end) {
 
     Expression expression;
@@ -292,6 +370,7 @@ Expression GetExpression(std::vector<Token>::iterator &current, const std::vecto
             else if (current->text == "foreachplayer") {
                 return GetForEachPlayerExpression(current, end);
             }
+            else if (current->text == "random") {}
             else if ((current+1) !=end && (current+1)->type == TokenType::name) {
                 return GetAttrDeclarationExpression(current, end);
             }
@@ -299,6 +378,12 @@ Expression GetExpression(std::vector<Token>::iterator &current, const std::vecto
 
         else if (current->type == TokenType::assignment) {
             return GetAssignmentExpression(current, end, leftAccumulationStart);
+        }
+        else if (current->type == TokenType::move) {
+            return GetMoveExpression(current, end, leftAccumulationStart, ExpressionType::STACK_MOVE);
+        }
+        else if (current->type == TokenType::move_under) {
+            return GetMoveExpression(current, end, leftAccumulationStart, ExpressionType::STACK_MOVE_UNDER);
         }
 
         ensureNoEOF(++current, end);
