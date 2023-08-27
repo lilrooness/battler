@@ -165,6 +165,8 @@ Expression GetFactorExpression(std::vector<Token>::iterator &current, const std:
         std::vector<Token> identifierTokens;
         if (current->type == TokenType::name) {
             identifierTokens = GetIdentifierTokens(current, end);
+        } else {
+            identifierTokens = {*current};
         }
 
         ensureNoEOF(current+1, end);
@@ -262,6 +264,9 @@ Expression GetSetupExpression(std::vector<Token>::iterator &current, const std::
 
 Expression GetForEachPlayerExpression(std::vector<Token>::iterator &current, const std::vector<Token>::iterator end) {
     ensureTokenTypeAndText(TokenType::name, "foreachplayer", *current, "foreachplayer expected for this kind of loop");
+
+    Expression expr(ExpressionType::FOREACHPLAYER_DECLARATION, {*current});
+
     ensureNoEOF(++current, end);
     ensureTokenType(TokenType::name, *current, "expected each player identifier here");
     
@@ -271,8 +276,7 @@ Expression GetForEachPlayerExpression(std::vector<Token>::iterator &current, con
     ensureTokenTypeAndText(TokenType::name, "start", *current, "expected 'start' here");
     ensureNoEOF(++current, end);
 
-    Expression expr;
-    expr.type = ExpressionType::FOREACHPLAYER_DECLARATION;
+
     expr.children = GetBlock(current, end);
     expr.children.push_back(identExpr);
 

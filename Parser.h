@@ -83,6 +83,7 @@ std::pair<Token, std::string::iterator> getNextToken(
 			t.text.push_back('>');
 
 			if (begin+2 != end && *(begin+2) == '_') {
+				t.text.push_back('_');
 				t.type = TokenType::move_under;
 				return make_pair(t, begin+3);
 			}

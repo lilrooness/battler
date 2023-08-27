@@ -9,6 +9,20 @@
 #include "Parser.h"
 #include "expression.h"
 
+void TestEvaluateExpression(Expression &expr) {
+    using std::cout;
+    using std::endl;
+
+    for (auto t : expr.tokens) {
+        cout << t.text << " ";
+    }
+    cout << endl;
+
+    for (auto child : expr.children) {
+        TestEvaluateExpression(child);
+    }
+}
+
 int main(int argc, char* argv[]) {
 
     if (argc < 2) {
@@ -55,7 +69,10 @@ int main(int argc, char* argv[]) {
 
     BattlerGame game;
     try {
-        GetExpression(tokens.begin(), tokens.end());
+
+        Expression expr = GetExpression(tokens.begin(), tokens.end());
+        TestEvaluateExpression(expr);
+
     } catch (UnexpectedTokenException e) {
 
         std::cout << "Error: unexpected token on line " << e.t.l << std::endl;
