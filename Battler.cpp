@@ -5,9 +5,9 @@
 #include <string>
 #include <algorithm>
 
-#include "Battler.h"
 #include "Parser.h"
 #include "expression.h"
+#include "vm/game.h"
 
 void TestEvaluateExpression(Expression &expr) {
     using std::cout;
@@ -67,7 +67,6 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    BattlerGame game;
     try {
 
         Expression expr = GetExpression(tokens.begin(), tokens.end());

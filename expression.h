@@ -9,7 +9,6 @@
 #include <sstream>
 #include <memory>
 
-#include "Battler.h"
 #include "Parser.h"
 #include "interpreter_errors.h"
 

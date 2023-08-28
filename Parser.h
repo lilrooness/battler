@@ -6,8 +6,6 @@
 #include <cctype>
 #include <cassert>
 
-#include "Battler.h"
-
 enum class TokenType {
 	assignment,
 	equality,

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Battler.h"
 #include "Parser.h"
 
 class UnexpectedTokenException {
