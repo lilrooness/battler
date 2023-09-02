@@ -13,20 +13,20 @@
 #include "interpreter_errors.h"
 
 enum class ExpressionType {
-    EXPRESSION,
-    OPERATAOR,
+    // EXPRESSION,
+    // OPERATAOR,
     FACTOR,
     ADDITION,
     MULTIPLICATION,
     DIVISION,
     SUBTRACTION,
     EQUALITY_TEST, // '=='
-    FOREACH,
+    // FOREACH,
     IDENTIFIER,
-    NAME,
-    LITERAL,
-    GROUPING,
-    BINARY,
+    // NAME,
+    // LITERAL,
+    // GROUPING,
+    // BINARY,
     ASSIGNMENT_TARGET,
     ATTR_TYPE_SPECIFIER,
     ATTR_NAME_DECLARATION,
@@ -118,6 +118,7 @@ std::vector<Expression> GetBlock(std::vector<Token>::iterator &current, const st
 }
 
 Expression GetGameDelcarationExpression(std::vector<Token>::iterator &current, const std::vector<Token>::iterator end) {
+    Token t = *current;
     ensureNoEOF(++current, end);
     ensureTokenType(TokenType::name, *current, "Expected game name declaration here");
     Expression gameNameDeclaration = Expression(ExpressionType::GAME_NAME_DECLARATION, {*current});
@@ -127,6 +128,7 @@ Expression GetGameDelcarationExpression(std::vector<Token>::iterator &current, c
     ensureNoEOF(++current, end);
 
     Expression gameExpr;
+    gameExpr.tokens.push_back(t);
     gameExpr.type = ExpressionType::GAME_DECLARATION;
     gameExpr.children = GetBlock(current, end);
     gameExpr.children.push_back(std::move(gameNameDeclaration));
@@ -139,6 +141,7 @@ Expression GetAttrDeclarationExpression(std::vector<Token>::iterator &current, c
     
     Expression attrDeclaration;
     attrDeclaration.type = ExpressionType::ATTR_DECLARATION;
+    attrDeclaration.tokens.push_back(*current);
 
     ensureTokenType(TokenType::name, *current, "Expected an attribute type specifier here EG 'int', 'bool, 'string'");
 
@@ -226,6 +229,9 @@ Expression GetAssignmentExpression(std::vector<Token>::iterator &current, const 
 }
 
 Expression GetCardDeclarationExpression(std::vector<Token>::iterator &current, const std::vector<Token>::iterator end) {
+    Expression cardExpr;
+    cardExpr.tokens.push_back(*current);
+
     ensureNoEOF(++current, end);
     ensureTokenType(TokenType::name, *current, "Expected name of Card declared here");
     Expression cardNameDeclaration = Expression(ExpressionType::CARD_NAME_DECLARATION, {*current});
@@ -240,7 +246,7 @@ Expression GetCardDeclarationExpression(std::vector<Token>::iterator &current, c
     ensureTokenTypeAndText(TokenType::name, "start", *current, "Expected a 'start' here");
     ensureNoEOF(++current, end);
 
-    Expression cardExpr;
+    
     cardExpr.type = ExpressionType::CARD_DECLARATION;
     cardExpr.children = GetBlock(current, end);
     cardExpr.children.push_back(std::move(cardNameDeclaration));
@@ -249,12 +255,15 @@ Expression GetCardDeclarationExpression(std::vector<Token>::iterator &current, c
 }
 
 Expression GetSetupExpression(std::vector<Token>::iterator &current, const std::vector<Token>::iterator end) {
+    Expression expr;
+    expr.tokens.push_back(*current);
+    
     ensureTokenTypeAndText(TokenType::name, "setup", *current, "you can't start a setup expression with this");
     ensureNoEOF(++current, end);
     ensureTokenTypeAndText(TokenType::name, "start", *current, "expected 'start' here");
     ensureNoEOF(++current, end);
 
-    Expression expr;
+    
     expr.type = ExpressionType::SETUP_DECLARATION;
     expr.children = GetBlock(current, end);
 
@@ -416,7 +425,7 @@ Expression GetIfExpression(std::vector<Token>::iterator &current, const std::vec
 
 Expression GetWinnerIsExpression(std::vector<Token>::iterator &current, const std::vector<Token>::iterator end) {
 
-    Expression expr(ExpressionType::WINER_DECLARATION, {});
+    Expression expr(ExpressionType::WINER_DECLARATION, {*current});
     ensureNoEOF(++current, end);
 
     expr.tokens = GetIdentifierTokens(current, end);
@@ -437,7 +446,7 @@ Expression GetTurnExpression(std::vector<Token>::iterator &current, const std::v
 }
 
 Expression GetDoExpression(std::vector<Token>::iterator &current, const std::vector<Token>::iterator end) {
-    Expression expr(ExpressionType::DO_DECLARATION, {});
+    Expression expr(ExpressionType::DO_DECLARATION, {*current});
 
     ensureNoEOF(++current, end);
     ensureTokenType(TokenType::name, *current, "Expected phase name here");
@@ -460,6 +469,8 @@ Expression GetPlayersExpression(std::vector<Token>::iterator &current, const std
 Expression GetExpression(std::vector<Token>::iterator &current, const std::vector<Token>::iterator end) {
 
     Expression expression;
+
+    expression.tokens.push_back(*current);
 
     // sometimes we want to process the left hand side expression later EG `my.draw_stack -> my.hand`
     auto leftAccumulationStart = current;

@@ -8,6 +8,7 @@
 #include "Parser.h"
 #include "expression.h"
 #include "vm/game.h"
+#include "vm/run.h"
 
 void TestEvaluateExpression(Expression &expr) {
     using std::cout;
@@ -21,6 +22,20 @@ void TestEvaluateExpression(Expression &expr) {
     for (auto child : expr.children) {
         TestEvaluateExpression(child);
     }
+}
+
+std::string GetErrorString(std::string errorTypeString, std::string reason, Token t, vector<string> lines) {
+    std::stringstream ss;
+    ss << "Error: " << errorTypeString << " on line " << t.l << std::endl;
+    ss << lines[t.l-1] << std::endl;
+    for(int i=0; i<t.c; i++) {
+
+        ss << "_";
+    }
+    ss << "^" << std::endl << std::endl;
+    ss << "Reason: " << reason << std::endl;
+
+    return ss.str();
 }
 
 int main(int argc, char* argv[]) {
@@ -70,18 +85,15 @@ int main(int argc, char* argv[]) {
     try {
 
         Expression expr = GetExpression(tokens.begin(), tokens.end());
-        TestEvaluateExpression(expr);
+        // TestEvaluateExpression(expr);
+
+        Game game;
+        vector<AttributeContainer> localeStack;
+        RunExpression(expr, game, ExpressionType::UNKNOWN, localeStack);
 
     } catch (UnexpectedTokenException e) {
 
-        std::cout << "Error: unexpected token on line " << e.t.l << std::endl;
-        std::cout << lines[e.t.l-1] << std::endl;
-        for(int i=0; i<e.t.c; i++) {
-
-         std::cout << "_";
-        }
-        std::cout << "^" << std::endl << std::endl;
-        std::cout << "Reason: " << e.reason << std::endl;
+        std::cout << GetErrorString("unexpected token", e.reason, e.t, lines) << endl;
 
         return 1;
     } catch (NameRedeclaredException e) {
@@ -89,6 +101,12 @@ int main(int argc, char* argv[]) {
         return 1;
     } catch (NoNameException e) {
         std::cout << "Error: " << e.name << " is not declared" << std::endl;
+        return 1;
+    } catch (RuntimeError e) {
+        std::cout << GetErrorString("runtime error", e.reason, e.t, lines) << endl;
+        return 1;
+    } catch (OperationError e) {
+        std::cout << e.reason << endl;
         return 1;
     }
 

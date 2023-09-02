@@ -4,6 +4,9 @@
 #include <string>
 #include <unordered_map>
 
+class Card;
+class AttributeContainer;
+
 enum class AttributeType {INT, FLOAT, STRING, BOOL, CARD, STACK, UNDEFINED};
 
 class OperationError {
@@ -12,19 +15,7 @@ class OperationError {
         OperationError(std::string reason): reason{reason} {}
 };
 
-class Card {
-    public:
-        std::string name;
-        AttributeType attributes;
-};
-
 enum class StackType {VISIBLE, PRIVATE, HIDDEN};
-
-class Stack {
-    public:
-        StackType t;
-        std::vector<Card>  cards;
-};
 
 class AttributeContainer {
     public:
@@ -35,8 +26,6 @@ class AttributeContainer {
         std::unordered_map<std::string, int> ints;
         std::unordered_map<std::string, float> floats;
         std::unordered_map<std::string, std::string> strings;
-        std::unordered_map<std::string, Card> cards;
-        std::unordered_map<std::string, Stack> stacks;
 
         void StoreInt(std::string name, int value)  {
             Store<int>(name, value, AttributeType::INT, ints);
@@ -54,12 +43,14 @@ class AttributeContainer {
             Store<std::string>(name, value, AttributeType::STRING, strings);
         }
 
-        void StoreCard(std::string name, Card&& value)  {
-            Store<Card>(name, value, AttributeType::CARD, cards);
-        }
+        template<typename T>
+        T& GetRef(std::string name, AttributeType t, std::unordered_map<std::string, T>& map) {
+            auto itr = typeInfo.find(name);
+            if (itr == typeInfo.end()) {
+                throw NoNameException(name);
+            }
 
-        void StoreStack(std::string name, Stack value)  {
-            Store<Stack>(name, value, AttributeType::STACK, stacks);
+            return map[name];
         }
 
     private:
@@ -75,12 +66,45 @@ class AttributeContainer {
         }
 };
 
+class Card {
+    public:
+        int ID;
+        std::string name;
+        std::string parentName;
+        AttributeContainer attributes;
+};
+
+class Stack {
+    public:
+        StackType t;
+        int ownerID;
+        std::vector<Card>  cards;
+};
+
+class Player {
+    public:
+        int ID;
+        std::string name;
+        AttributeContainer attributes;
+};
+
 class Phase {
     public:
+        int ID;
+        std::string name;
         AttributeContainer attributes;
+        Expression expression;
 };
 
 class Game {
     public:
+        int ID;
+        std::string name;
         AttributeContainer attributes;
+        std::unordered_map<std::string, Phase> phases;
+        std::unordered_map<std::string, Card> cards;
+        std::unordered_map<std::string, Stack> stacks;
+        std::vector<Player> players;
+        Expression setup;
+        Expression turn;
 };

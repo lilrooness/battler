@@ -2,7 +2,9 @@ game TestGame start
 
     visiblestack InPlay
     hiddenstack Draw
-    players 2 + 3
+    int someVarName
+    someVarName = 4 * 2
+
 
     card Ship start
         int shield
@@ -13,9 +15,9 @@ game TestGame start
 
     card Atron Ship start
         shield = 300 + 1
-        armour = 350 * 2 - 1 + someVarName.x
-        hull = 400 / 2 * 3
-        attack = 50
+        armour = 350 * 2 - 1
+        hull = 400 + 2 * 3
+        attack = 50 + 60 * 6 - 5 / 4
     end
     
     card Kestral Ship start end
@@ -53,5 +55,7 @@ game TestGame start
         do Draw
         do Place
     end
+    
+    players 2
 
 end
