@@ -401,9 +401,9 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
 
                 /**
                  * the code that takes the cards and puts them in the new stack
-                 * shouldn't care about the order in which they were taken from the
-                 * source stack. It assumes that the 'backmost' card is the one you
-                 * would take first, whether from the bottom, or the top
+                 * assumes that the 'backmost' card is the one you
+                 * would take first, whether from the bottom, or the top,
+                 * so cardsTaken must be reversed in this case
                 */
                 std::reverse(cardsTaken.begin(), cardsTaken.end());
             }
@@ -420,7 +420,7 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
             }
         }
         else if (sourceStackExpr.type == ExpressionType::STACK_MOVE_RANDOM_SOURCE) {
-            throw RuntimeError("random move isn't implemented yet", expr.tokens[0]);
+            throw RuntimeError("random move isn't implemented yet", sourceStackExpr.tokens[0]);
         }
     }
     else {

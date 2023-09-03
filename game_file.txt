@@ -5,6 +5,7 @@ game TestGame start
     int someVarName
     someVarName = 4 * 2
 
+    
 
     card Ship start
         int shield
@@ -12,6 +13,8 @@ game TestGame start
         int hull
         int attack
     end
+
+    Draw ->_ InPlay bottom 10
 
     card Atron Ship start
         shield = 300 + 1
