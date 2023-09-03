@@ -330,6 +330,99 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
         phase.name = expr.tokens[0].text;
         phase.expression = expr;
     }
+    else if (expr.type == ExpressionType::STACK_MOVE || expr.type == ExpressionType::STACK_MOVE_UNDER) {
+        auto sourceStackExpr = expr.children[0];
+        auto targetStackExpr = expr.children[1];
+
+        if (sourceStackExpr.tokens.size() > 1) {
+            throw RuntimeError("Joe needs to implement referencing stacks by '.'", sourceStackExpr.tokens[2]);
+        }
+
+        if (targetStackExpr.tokens.size() > 1) {
+            throw RuntimeError("Joe needs to implement referencing stacks by '.'", targetStackExpr.tokens[2]);
+        }
+
+        string targetName = targetStackExpr.children[0].tokens[0].text;
+        if (game.stacks.find(targetName) == game.stacks.end()) {
+                throw RuntimeError(targetName + " is not defined", targetStackExpr.children[0].tokens[0]);
+        }
+
+        Expression targetNumberExpression = FactorExpression(targetStackExpr.children[1], game, localeStack);
+        int moveNumber = std::stoi(targetNumberExpression.tokens[0].text);
+
+        if (moveNumber < 1) {
+            cout << "moving zero, ignoring move expression" << endl;
+            return;
+        }
+
+        if (sourceStackExpr.type == ExpressionType::STACK_MOVE_SOURCE) {
+            string sourceName = sourceStackExpr.tokens[0].text;
+            
+            if (game.stacks.find(sourceName) == game.stacks.end()) {
+                throw RuntimeError(sourceName + " is not defined", sourceStackExpr.tokens[0]);
+            }
+
+            Stack& source = game.stacks[sourceName];
+            Stack& target = game.stacks[targetName];
+
+            if (source.cards.size() == 0) {
+                cout << "source for move contained no cards, ignoring expression" << endl;
+                return;
+            }
+
+            vector<Card> cardsTaken;
+
+            // the target Expression type determines we want to take cards from the source stack
+            if (targetStackExpr.type == ExpressionType::STACK_SOURCE_TOP) {
+                // take cards from the top of the source deck
+                int limit = source.cards.size() - std::min(
+                    static_cast<int>(source.cards.size()),
+                    moveNumber
+                );
+
+                auto start = source.cards.end() - limit;
+                auto end = source.cards.end() - 1;
+
+                cardsTaken = vector<Card>(start, end);
+                source.cards.erase(start, end);
+            }
+            else if (targetStackExpr.type == ExpressionType::STACK_SOURCE_BOTTOM) {
+                // take cards from the bottom of the source deck
+                int limit = std::min(
+                    static_cast<int>(source.cards.size()),
+                    moveNumber
+                );
+                
+                auto start = source.cards.begin();
+                auto end = source.cards.begin() + (limit-1);
+
+                cardsTaken = vector<Card>(start, end);
+                source.cards.erase(start, end);
+
+                /**
+                 * the code that takes the cards and puts them in the new stack
+                 * shouldn't care about the order in which they were taken from the
+                 * source stack. It assumes that the 'backmost' card is the one you
+                 * would take first, whether from the bottom, or the top
+                */
+                std::reverse(cardsTaken.begin(), cardsTaken.end());
+            }
+            else if (targetStackExpr.type == ExpressionType::STACK_SOURCE_CHOOSE) {
+                throw RuntimeError("'choose' move isn't implemented yet", targetStackExpr.tokens[0]);
+            }
+
+            if (expr.type == ExpressionType::STACK_MOVE) {
+                std::reverse(cardsTaken.begin(), cardsTaken.end());
+                target.cards.insert(target.cards.end(), cardsTaken.begin(), cardsTaken.end());
+            }
+            else if (expr.type == ExpressionType::STACK_MOVE_UNDER) {
+                target.cards.insert(target.cards.begin(), cardsTaken.begin(), cardsTaken.end());
+            }
+        }
+        else if (sourceStackExpr.type == ExpressionType::STACK_MOVE_RANDOM_SOURCE) {
+            throw RuntimeError("random move isn't implemented yet", expr.tokens[0]);
+        }
+    }
     else {
         std::stringstream ss;
         ss << "Unsupported Expression ";

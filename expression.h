@@ -43,9 +43,9 @@ enum class ExpressionType {
     STACK_MOVE_UNDER,
     STACK_MOVE_SOURCE,
     STACK_MOVE_RANDOM_SOURCE,
-    STACK_TARGET_BOTTOM,
-    STACK_TARGET_TOP,
-    STACK_TARGET_CHOOSE,
+    STACK_SOURCE_BOTTOM,
+    STACK_SOURCE_TOP,
+    STACK_SOURCE_CHOOSE,
     PHASE_DECLARATION,
     ONPLACE_DECLARATION,
     ONPLACE_STACK_DECLARATION,
@@ -320,11 +320,11 @@ Expression GetStackMoveTargetExpression(std::vector<Token>::iterator &current, c
     ensureTokenType(TokenType::name, *current, "Expected one of 'choose', 'top' or 'bottom' here");
 
     if (current->text == "choose") {
-        expr.type = ExpressionType::STACK_TARGET_CHOOSE;
+        expr.type = ExpressionType::STACK_SOURCE_CHOOSE;
     } else if(current->text == "top") {
-        expr.type = ExpressionType::STACK_TARGET_TOP;
+        expr.type = ExpressionType::STACK_SOURCE_TOP;
     } else if(current->text == "bottom") {
-        expr.type = ExpressionType::STACK_TARGET_BOTTOM;
+        expr.type = ExpressionType::STACK_SOURCE_BOTTOM;
     } else {
         throw UnexpectedTokenException(*current, "Expected one of 'choose', 'top' or 'bottom' here");
     }
