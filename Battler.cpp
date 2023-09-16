@@ -85,16 +85,13 @@ int main(int argc, char* argv[]) {
     try {
 
         Expression expr = GetExpression(tokens.begin(), tokens.end());
-        // TestEvaluateExpression(expr);
 
         Game game;
-        vector<AttributeContainer> localeStack;
+        vector<AttrCont> localeStack {};
         RunExpression(expr, game, ExpressionType::UNKNOWN, localeStack);
 
     } catch (UnexpectedTokenException e) {
-
         std::cout << GetErrorString("unexpected token", e.reason, e.t, lines) << endl;
-
         return 1;
     } catch (NameRedeclaredException e) {
         std::cout << "Error: redeclaration of name: " << e.name << std::endl;

@@ -4,10 +4,13 @@
 #include <string>
 #include <unordered_map>
 
+#include "../expression.h"
+
 class Card;
 class AttributeContainer;
 
-enum class AttributeType {INT, FLOAT, STRING, BOOL, CARD, STACK, UNDEFINED};
+enum class AttributeType {INT, FLOAT, STRING, BOOL, CARD_REF, STACK_REF, PLAYER, PLAYER_REF, UNDEFINED};
+enum class Scope {LOCAL, GAME};
 
 class OperationError {
     public:
@@ -17,61 +20,41 @@ class OperationError {
 
 enum class StackType {VISIBLE, PRIVATE, HIDDEN};
 
-class AttributeContainer {
+class Attr {
     public:
+        AttributeType type;
+        std::string s;
+        std::string stackRef;
+        std::string cardRef;
         
-        std::unordered_map<std::string, AttributeType> typeInfo;
-        
-        std::unordered_map<std::string, bool> bools;
-        std::unordered_map<std::string, int> ints;
-        std::unordered_map<std::string, float> floats;
-        std::unordered_map<std::string, std::string> strings;
+        union {
+            int i;
+            bool b;
+            float f;
+            int playerRef;
+        };
+};
 
-        void StoreInt(std::string name, int value)  {
-            Store<int>(name, value, AttributeType::INT, ints);
-        }
+class AttrCont {
+    public:
 
-        void StoreBool(std::string name, bool value)  {
-            Store<bool>(name, value, AttributeType::BOOL, bools);
-        }
-
-        void StoreFloat(std::string name, float value)  {
-            Store<float>(name, value, AttributeType::FLOAT, floats);
-        }
-
-        void StoreString(std::string name, std::string value)  {
-            Store<std::string>(name, value, AttributeType::STRING, strings);
-        }
-
-        template<typename T>
-        T& GetRef(std::string name, AttributeType t, std::unordered_map<std::string, T>& map) {
-            auto itr = typeInfo.find(name);
-            if (itr == typeInfo.end()) {
-                throw NoNameException(name);
+        bool Contains(std::string name) {
+            if (attrs.find(name) == attrs.end()) {
+                return false;
             }
+            return true;
+        }
 
-            return map[name];
+        void Store(std::string name, Attr a) {
+            attrs[name] = a;
+        }
+
+        Attr& Get(std::string name) {
+            return attrs[name];
         }
 
     private:
-        template<typename T>
-        void Store(std::string name, T value, AttributeType attrType, std::unordered_map<std::string, T>& map) {
-            auto itr = typeInfo.find(name);
-            if (itr == typeInfo.end() || itr->second == attrType) {
-                typeInfo[name] = attrType;
-                map[name] = std::move(value);
-            } else {
-                throw OperationError("trying to store the wrong type in this attribute");
-            }
-        }
-};
-
-class Card {
-    public:
-        int ID;
-        std::string name;
-        std::string parentName;
-        AttributeContainer attributes;
+        std::unordered_map<std::string, Attr> attrs;
 };
 
 class Stack {
@@ -79,20 +62,29 @@ class Stack {
         StackType t;
         int ownerID;
         std::vector<Card>  cards;
+        AttrCont attributes;
+};
+
+class Card {
+    public:
+        int ID;
+        std::string name;
+        std::string parentName;
+        AttrCont attributes;
 };
 
 class Player {
     public:
         int ID;
         std::string name;
-        AttributeContainer attributes;
+        AttrCont attributes;
 };
 
 class Phase {
     public:
         int ID;
         std::string name;
-        AttributeContainer attributes;
+        AttrCont attributes;
         Expression expression;
 };
 
@@ -100,10 +92,11 @@ class Game {
     public:
         int ID;
         std::string name;
-        AttributeContainer attributes;
+        AttrCont attributeCont;
         std::unordered_map<std::string, Phase> phases;
         std::unordered_map<std::string, Card> cards;
         std::unordered_map<std::string, Stack> stacks;
+        std::unordered_map<std::string, int> playerBindings;
         std::vector<Player> players;
         Expression setup;
         Expression turn;

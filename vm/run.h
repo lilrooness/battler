@@ -54,63 +54,128 @@ void ensureNotExpressionType(ExpressionType actual, ExpressionType expectedNot, 
     }
 }
 
-void StoreValue(string name, string value, AttributeType type, AttributeContainer container) {
+void StoreValue(string name, string value, AttributeType type, AttrCont& container) {
     if (type == AttributeType::INT) {
-        container.StoreInt(name, std::stoi(value));
+        Attr a;
+        a.i = std::stoi(value);
+        a.type = AttributeType::INT;
+        container.Store(name, a);
     }
     else if (type == AttributeType::BOOL) {
+        Attr a;
+        a.type = type;
         if (value == "true") {
-            container.StoreBool(name, true);
+            a.b = true;
+            container.Store(name, a);
         } else if (value == "false") {
-            container.StoreBool(name, false);
+            a.b = false;
+            container.Store(name, a);
         } else {
             throw WrongTypeException();
         }
     }
     else if (type == AttributeType::STRING) {
-        container.StoreString(name, value);
+        Attr a;
+        a.s = value;
+        a.type = type;
+        container.Store(name, a);
     }
     else if (type == AttributeType::FLOAT) {
-        container.StoreFloat(name, std::stof(value));
+        Attr a;
+        a.f = std::stof(value);
+        a.type = type;
+        container.Store(name, a);
     }
 }
 
-void SetValueAtCorrectLocale(string name, string value, Game& game, vector<AttributeContainer>& stack) {
+void SetValueAtCorrectLocale(string name, string value, Game& game, vector<AttrCont>& stack) {
     for (int i=stack.size()-1; i>=0; i--) {
-        if (stack[i].typeInfo.find(name) != stack[i].typeInfo.end()) {
-            AttributeType type = stack[i].typeInfo.find(name)->second;
+        if (stack[i].Contains(name)) {
+            AttributeType type = stack[i].Get(name).type;
             StoreValue(name, value, type, stack[i]);
             return;
         }
     }
 
-    if (game.attributes.typeInfo.find(name) != game.attributes.typeInfo.end()) {
-        AttributeType type = game.attributes.typeInfo.find(name)->second;
-        StoreValue(name, value, type, game.attributes);
+    if (game.attributeCont.Contains(name)) {
+        AttributeType type = game.attributeCont.Get(name).type;
+        StoreValue(name, value, type, game.attributeCont);
         return;
     }
     return;
 }
 
-std::pair<string, string> ResolveTokensToTypeAndValue(vector<Token> tokens) {
-    string type;
-    string value;
-    if (tokens.size() > 1) {
-        throw RuntimeError("TODO: Joe really needs to implement attribute dot operator", tokens[0]);
-    } else {
-        auto t = tokens[0];
-        if (t.type == TokenType::name) {
-            throw RuntimeError("TODO: Joe really needs to implement attribute resolution", tokens[0]);
-        } else {
-            value = t.text;
-            type = "int";
+Attr ResolveTokensToAttr(vector<Token>& tokens, Game& game, vector<AttrCont>& localeStack) {
+    assert(tokens.size() > 0);
+
+    if (tokens.size() == 1 && tokens[0].type == TokenType::number) {
+        Attr res;
+        res.i = std::stoi(tokens[0].text);
+        res.type = AttributeType::INT;
+
+        return res;
+    }
+
+    auto tokenItr = tokens.begin();
+
+    string firstName = tokenItr->text;
+    ++tokenItr;
+
+    Attr current;
+    bool found = false;
+
+
+    for (int i=localeStack.size()-1; !found && i>=0; i--) {
+        if (localeStack[i].Contains(firstName)) {
+            current = localeStack[i].Get(firstName);
+            found = true;
         }
     }
 
-    return make_pair(type, value);
+    if (!found && game.attributeCont.Contains(firstName)) {
+        current = game.attributeCont.Get(firstName);
+        found = true;
+    }
+
+    if (!found) {
+        throw RuntimeError("Could not find name", tokens[0]);
+    }
+
+    while (tokenItr != tokens.end()) {
+        if (tokenItr->type == TokenType::name) {
+            if (current.type == AttributeType::CARD_REF) {
+                if (game.cards[current.cardRef].attributes.Contains(tokenItr->text)) {
+                    current = game.cards[current.cardRef].attributes.Get(tokenItr->text);
+                } else {
+                    throw RuntimeError("No attr found with this name on this card", *tokenItr);
+                }
+            }
+            else if (current.type == AttributeType::STACK_REF) {
+                if (game.stacks[current.stackRef].attributes.Contains(tokenItr->text)) {
+                    current = game.stacks[current.stackRef].attributes.Get(tokenItr->text);
+                } else {
+                    throw RuntimeError("No attr found with this name on this stack", *tokenItr);
+                }
+            }
+            else if (current.type == AttributeType::PLAYER_REF) {
+                if (game.players[current.playerRef].attributes.Contains(tokenItr->text)) {
+                    current = game.players[current.playerRef].attributes.Get(tokenItr->text);
+                } else {
+                    throw RuntimeError("No attr found with this name on this player", *tokenItr);
+                }
+            }
+            else {
+                throw RuntimeError("Not possible to select an attribute on this type", *tokenItr);
+            }
+        }
+
+        ++tokenItr;
+    }
+
+    return current;
 }
 
-Expression FactorExpression(Expression& expr, const Game& game, const vector<AttributeContainer>& stack) {
+Expression FactorExpression(Expression& expr, Game& game, vector<AttrCont>& stack) {
 
     if (expr.type == ExpressionType::FACTOR) {
         return expr;
@@ -119,28 +184,18 @@ Expression FactorExpression(Expression& expr, const Game& game, const vector<Att
     auto leftSide = expr.children[0];
     auto rightSide = expr.children[1];
 
-    string leftSideValue; 
-    string leftSideType;
-    
-    auto res = ResolveTokensToTypeAndValue(leftSide.tokens);
-    leftSideType = res.first;
-    leftSideValue = res.second;
-
+    Attr leftAttr = ResolveTokensToAttr(leftSide.tokens, game, stack);
+    AttributeType leftSideType = leftAttr.type;
     
     auto rightFactor = FactorExpression(rightSide, game, stack);
-    
-    string rightSideType;
-    string rightSideValue;
-
-    auto rightPair = ResolveTokensToTypeAndValue(rightFactor.tokens);
-    rightSideType = rightPair.first;
-    rightSideValue = rightPair.second;
+    Attr rightAttr = ResolveTokensToAttr(rightFactor.tokens, game, stack);
+    AttributeType rightSideType = rightAttr.type;
     
     switch (expr.type) {
         case ExpressionType::ADDITION:
-            if (leftSideType == "int") {
-                int left = std::stoi(leftSideValue);
-                int right = std::stoi(rightSideValue);
+            if (leftSideType == AttributeType::INT) {
+                int left = leftAttr.i; //std::stoi(leftSideValue);
+                int right = rightAttr.i; //std::stoi(rightSideValue);
 
                 int result = left + right;
 
@@ -152,13 +207,13 @@ Expression FactorExpression(Expression& expr, const Game& game, const vector<Att
                 e.type = ExpressionType::FACTOR;
                 return e;
             } else {
-                throw RuntimeError("You cannot currently add these types", expr.tokens[0]);
+                throw RuntimeError("You cannot add these types", expr.tokens[0]);
             }
             break;
         case ExpressionType::SUBTRACTION:
-            if (leftSideType == "int") {
-                int left = std::stoi(leftSideValue);
-                int right = std::stoi(rightSideValue);
+            if (leftSideType == AttributeType::INT) {
+                int left = leftAttr.i;
+                int right = rightAttr.i;
 
                 int result = left - right;
 
@@ -170,13 +225,13 @@ Expression FactorExpression(Expression& expr, const Game& game, const vector<Att
                 e.type = ExpressionType::FACTOR;
                 return e;
             } else {
-                throw RuntimeError("You cannot currently subtract these types", expr.tokens[0]);
+                throw RuntimeError("You cannot subtract these types", expr.tokens[0]);
             }
             break;
         case ExpressionType::MULTIPLICATION:
-            if (leftSideType == "int") {
-                int left = std::stoi(leftSideValue);
-                int right = std::stoi(rightSideValue);
+            if (leftSideType == AttributeType::INT) {
+                int left = leftAttr.i;
+                int right = rightAttr.i;
 
                 int result = left * right;
 
@@ -188,13 +243,13 @@ Expression FactorExpression(Expression& expr, const Game& game, const vector<Att
                 e.type = ExpressionType::FACTOR;
                 return e;
             } else {
-                throw RuntimeError("You cannot currently multiply these types", expr.tokens[0]);
+                throw RuntimeError("You cannot multiply these types", expr.tokens[0]);
             }
             break;
         case ExpressionType::DIVISION:
-            if (leftSideType == "int") {
-                int left = std::stoi(leftSideValue);
-                int right = std::stoi(rightSideValue);
+            if (leftSideType == AttributeType::INT) {
+                int left =  leftAttr.i;
+                int right = rightAttr.i;
 
                 int result = left / right;
 
@@ -206,7 +261,7 @@ Expression FactorExpression(Expression& expr, const Game& game, const vector<Att
                 e.type = ExpressionType::FACTOR;
                 return e;
             } else {
-                throw RuntimeError("You cannot currently divide these types", expr.tokens[0]);
+                throw RuntimeError("You cannot divide these types", expr.tokens[0]);
             }
             break;
             break;
@@ -215,7 +270,7 @@ Expression FactorExpression(Expression& expr, const Game& game, const vector<Att
     throw RuntimeError("Unsupported Operation", expr.tokens[0]);
 }
 
-void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<AttributeContainer>& localeStack) {
+void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<AttrCont>& localeStack) {
     if (expr.type == ExpressionType::GAME_DECLARATION) {
         ensureExpressionType(parent, ExpressionType::UNKNOWN, "Can't declare a game here", expr.tokens[0]);
         ensureExpressionType(expr.children.back().type, ExpressionType::GAME_NAME_DECLARATION, "Expected a game name declaration", expr.children.back().tokens[0]);
@@ -242,11 +297,11 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
         }
         expr.children.pop_back();
 
-        localeStack.push_back(AttributeContainer{});
+        localeStack.push_back(AttrCont());
         for (auto e : expr.children) {
             RunExpression(e, game, expr.type, localeStack);
         }
-        c.attributes = localeStack.back();
+        c.attributes = std::move(localeStack.back());
         localeStack.pop_back();
 
         game.cards[c.name] = std::move(c);
@@ -261,47 +316,71 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
         string type = (expr.children.end()-2)->tokens[0].text;
 
         if (type == "int") {
+            Attr a;
+            a.i = 0;
+            a.type = AttributeType::INT;
             if (localeStack.empty()) {
-                game.attributes.StoreInt(name, 0);
+                game.attributeCont.Store(name, a);
             } else {
-                localeStack.back().StoreInt(name, 0);
+                localeStack.back().Store(name, a);
             }
         }
         else if (type == "bool") {
+            Attr a;
+            a.b = false;
+            a.type = AttributeType::BOOL;
             if (localeStack.empty()) {
-                game.attributes.StoreBool(name, false);
+                game.attributeCont.Store(name, a);
             } else {
-                localeStack.back().StoreBool(name, false);
+                localeStack.back().Store(name, a);
             }
         }
         else if (type == "string") {
+            Attr a;
+            a.s = "";
+            a.type = AttributeType::STRING;
             if (localeStack.empty()) {
-                game.attributes.StoreString(name, "");
+                game.attributeCont.Store(name, a);
             } else {
-                localeStack.back().StoreString(name, "");
+                localeStack.back().Store(name, a);
             }
         }
         else if (type == "float") {
+            Attr a;
+            a.f = 0.0f;
+            a.type = AttributeType::FLOAT;
             if (localeStack.empty()) {
-                game.attributes.StoreFloat(name, 0.0f);
+                game.attributeCont.Store(name, a);
             } else {
-                localeStack.back().StoreFloat(name, 0.0f);
+                localeStack.back().Store(name, a);
             }
         }
         else if (type == "visiblestack") {
             Stack s;
             s.t = StackType::VISIBLE;
-            game.stacks[name] = s;
+            Attr a;
+            a.type = AttributeType::STACK_REF;
+            a.stackRef = name;
+            game.attributeCont.Store(name, std::move(a));
+            game.stacks[name] = std::move(s);
         }
         else if (type == "hiddenstack") {
             Stack s;
             s.t = StackType::HIDDEN;
-            game.stacks[name] = s;
+            Attr a;
+            a.type = AttributeType::STACK_REF;
+            a.stackRef = name;
+            game.attributeCont.Store(name, std::move(a));
+            game.stacks[name] = std::move(s);
         }
         else if (type == "privatestack") {
             Stack s;
             s.t = StackType::PRIVATE;
-            game.stacks[name] = s;
+            Attr a;
+            a.type = AttributeType::STACK_REF;
+            a.stackRef = name;
+            game.attributeCont.Store(name, std::move(a));
+            game.stacks[name] = std::move(s);
         }
         else {
             std::stringstream ss;
@@ -334,15 +413,12 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
         auto sourceStackExpr = expr.children[0];
         auto targetStackExpr = expr.children[1];
 
-        if (sourceStackExpr.tokens.size() > 1) {
-            throw RuntimeError("Joe needs to implement referencing stacks by '.'", sourceStackExpr.tokens[2]);
+        Attr stackRef = ResolveTokensToAttr(targetStackExpr.children[0].tokens, game, localeStack);
+        if (stackRef.type != AttributeType::STACK_REF) {
+            throw RuntimeError("the target of a move must be a stack", *targetStackExpr.children[0].tokens.rbegin());
         }
+        string targetName = stackRef.stackRef;
 
-        if (targetStackExpr.tokens.size() > 1) {
-            throw RuntimeError("Joe needs to implement referencing stacks by '.'", targetStackExpr.tokens[2]);
-        }
-
-        string targetName = targetStackExpr.children[0].tokens[0].text;
         if (game.stacks.find(targetName) == game.stacks.end()) {
                 throw RuntimeError(targetName + " is not defined", targetStackExpr.children[0].tokens[0]);
         }
@@ -356,7 +432,12 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
         }
 
         if (sourceStackExpr.type == ExpressionType::STACK_MOVE_SOURCE) {
-            string sourceName = sourceStackExpr.tokens[0].text;
+            // string sourceName = sourceStackExpr.tokens[0].text;
+            Attr sourceStackRef = ResolveTokensToAttr(sourceStackExpr.tokens, game, localeStack);
+            if (sourceStackRef.type != AttributeType::STACK_REF) {
+                throw RuntimeError("the source of a move must be a stack", *sourceStackExpr.tokens.rbegin());
+            }
+            string sourceName = sourceStackRef.stackRef;
             
             if (game.stacks.find(sourceName) == game.stacks.end()) {
                 throw RuntimeError(sourceName + " is not defined", sourceStackExpr.tokens[0]);
@@ -422,6 +503,25 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
         else if (sourceStackExpr.type == ExpressionType::STACK_MOVE_RANDOM_SOURCE) {
             throw RuntimeError("random move isn't implemented yet", sourceStackExpr.tokens[0]);
         }
+    }
+    else if (expr.type == ExpressionType::FOREACHPLAYER_DECLARATION) {
+        Expression identExpression = expr.children.back();
+        if (identExpression.tokens.size() != 1 || identExpression.tokens[0].type != TokenType::name) {
+            throw RuntimeError("must specify a for current player in foreachplayer loop", expr.tokens[0]);
+        }
+        string identifier = identExpression.tokens[0].text;
+        // TODO: do this in a loop
+        // AttrCont forLoopAttrs;
+        // Attr playerRef;
+        // playerRef.playerRef = 0;
+        // playerRef.type = AttributeType::PLAYER_REF;
+        // forLoopAttrs.Store(identifier, std::move(playerRef));
+
+        // localeStack.push_back(forLoopAttrs);
+
+        // for (auto child : expr.children) {
+        //     RunExpression(child, game, ExpressionType::FOREACHPLAYER_DECLARATION, localeStack);
+        // }
     }
     else {
         std::stringstream ss;
