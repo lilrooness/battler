@@ -175,6 +175,68 @@ Attr ResolveTokensToAttr(vector<Token>& tokens, Game& game, vector<AttrCont>& lo
     return current;
 }
 
+bool typeCanHaveAttrs(AttributeType type) {
+    return 
+       type == AttributeType::CARD_REF 
+    || type == AttributeType::STACK_REF
+    || type == AttributeType::PLAYER_REF
+    || type == AttributeType::PHASE_REF;
+}
+
+AttrCont* GetObjectAttrContPtr(Game& game, AttrCont& cont, Token& nameToken) {
+    if (!cont.Contains(nameToken.text)) {
+        throw RuntimeError("this attribute does not exist ", nameToken);
+    }
+
+    if(cont.Get(nameToken.text).type == AttributeType::CARD_REF) {
+        return &game.cards[cont.Get(nameToken.text).cardRef].attributes;
+    }
+
+    if(cont.Get(nameToken.text).type == AttributeType::PLAYER_REF) {
+        return &game.players[cont.Get(nameToken.text).playerRef].attributes;
+    }
+
+    if(cont.Get(nameToken.text).type == AttributeType::PHASE_REF) {
+        return &game.phases[cont.Get(nameToken.text).phaseRef].attributes;
+    }
+
+    if(cont.Get(nameToken.text).type == AttributeType::STACK_REF) {
+        return &game.phases[cont.Get(nameToken.text).phaseRef].attributes;
+    }
+
+    throw RuntimeError("this type cannot have attributes ", nameToken);
+}
+
+AttrCont* GetObjectAttrContPtrFromIdentifier(vector<Token>& tokens, Game& game, vector<AttrCont>& localeStack) {
+    assert(tokens.size() > 0);
+
+    auto tokenItr = tokens.begin();
+
+    string firstName = tokenItr->text;
+    ++tokenItr;
+
+    AttrCont* current;
+    bool found = false;
+
+    for (int i=localeStack.size()-1; !found && i>=0; i--) {
+        if (localeStack[i].Contains(tokens[0].text)) {
+            current = GetObjectAttrContPtr(game, localeStack[i], tokens[0]);
+            found = true;
+        }
+    }
+
+    if (!found && game.attributeCont.Contains(firstName)) {
+        current = GetObjectAttrContPtr(game, game.attributeCont, tokens[0]);
+        found = true;
+    }
+
+    if (!found) {
+        throw RuntimeError("Could not find attribute", tokens[0]);
+    }
+
+    return current;
+}
+
 Expression FactorExpression(Expression& expr, Game& game, vector<AttrCont>& stack) {
 
     if (expr.type == ExpressionType::FACTOR) {
@@ -308,84 +370,76 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
     }
     else if (expr.type == ExpressionType::ATTR_DECLARATION) {
         ensureExpressionType(expr.children.back().type, ExpressionType::ATTR_NAME_DECLARATION, "Expected to find an attr name decl here", expr.children.back().tokens[0]);
+
+        AttrCont* attributeContainer;
+
+        bool storeGlobalTypesInGameAttrs = true;
+
         if (expr.children.back().tokens.size() > 1) {
-            throw RuntimeError("can't delcare attribute like this", expr.tokens[0]);
+            storeGlobalTypesInGameAttrs = false;
+            attributeContainer = GetObjectAttrContPtrFromIdentifier(expr.children.back().tokens, game, localeStack);
+        }
+        else if (localeStack.empty()) {
+            attributeContainer = &game.attributeCont;
+        } else {
+            attributeContainer = &localeStack.back();
         }
 
         string name = expr.children.back().tokens[0].text;
         string type = (expr.children.end()-2)->tokens[0].text;
 
+        Attr a;
+        bool isGlobalType = false;
         if (type == "int") {
-            Attr a;
             a.i = 0;
             a.type = AttributeType::INT;
-            if (localeStack.empty()) {
-                game.attributeCont.Store(name, a);
-            } else {
-                localeStack.back().Store(name, a);
-            }
         }
         else if (type == "bool") {
-            Attr a;
             a.b = false;
             a.type = AttributeType::BOOL;
-            if (localeStack.empty()) {
-                game.attributeCont.Store(name, a);
-            } else {
-                localeStack.back().Store(name, a);
-            }
         }
         else if (type == "string") {
-            Attr a;
             a.s = "";
             a.type = AttributeType::STRING;
-            if (localeStack.empty()) {
-                game.attributeCont.Store(name, a);
-            } else {
-                localeStack.back().Store(name, a);
-            }
         }
         else if (type == "float") {
-            Attr a;
             a.f = 0.0f;
             a.type = AttributeType::FLOAT;
-            if (localeStack.empty()) {
-                game.attributeCont.Store(name, a);
-            } else {
-                localeStack.back().Store(name, a);
-            }
         }
         else if (type == "visiblestack") {
+            isGlobalType=true;
             Stack s;
             s.t = StackType::VISIBLE;
-            Attr a;
             a.type = AttributeType::STACK_REF;
             a.stackRef = name;
-            game.attributeCont.Store(name, std::move(a));
             game.stacks[name] = std::move(s);
         }
         else if (type == "hiddenstack") {
+            isGlobalType=true;
             Stack s;
             s.t = StackType::HIDDEN;
-            Attr a;
             a.type = AttributeType::STACK_REF;
             a.stackRef = name;
-            game.attributeCont.Store(name, std::move(a));
             game.stacks[name] = std::move(s);
         }
         else if (type == "privatestack") {
+            isGlobalType=true;
             Stack s;
             s.t = StackType::PRIVATE;
-            Attr a;
             a.type = AttributeType::STACK_REF;
             a.stackRef = name;
-            game.attributeCont.Store(name, std::move(a));
             game.stacks[name] = std::move(s);
         }
         else {
             std::stringstream ss;
             ss << "unsupported Type " << type;
             throw RuntimeError(ss.str(), expr.tokens[0]);
+        }
+
+        if (isGlobalType && storeGlobalTypesInGameAttrs) {
+            game.attributeCont.Store(name, std::move(a));
+        } else {
+            attributeContainer->Store(name, std::move(a));
         }
     }
     else if (expr.type == ExpressionType::ATTR_ASSIGNMENT) {
@@ -432,7 +486,6 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
         }
 
         if (sourceStackExpr.type == ExpressionType::STACK_MOVE_SOURCE) {
-            // string sourceName = sourceStackExpr.tokens[0].text;
             Attr sourceStackRef = ResolveTokensToAttr(sourceStackExpr.tokens, game, localeStack);
             if (sourceStackRef.type != AttributeType::STACK_REF) {
                 throw RuntimeError("the source of a move must be a stack", *sourceStackExpr.tokens.rbegin());
