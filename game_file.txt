@@ -2,6 +2,7 @@ game TestGame start
 
     visiblestack InPlay
     hiddenstack Draw
+    privatestack Draw.h
     int someVarName
     someVarName = 4 * 2
 

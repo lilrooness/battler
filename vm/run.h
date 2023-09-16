@@ -88,23 +88,6 @@ void StoreValue(string name, string value, AttributeType type, AttrCont& contain
     }
 }
 
-void SetValueAtCorrectLocale(string name, string value, Game& game, vector<AttrCont>& stack) {
-    for (int i=stack.size()-1; i>=0; i--) {
-        if (stack[i].Contains(name)) {
-            AttributeType type = stack[i].Get(name).type;
-            StoreValue(name, value, type, stack[i]);
-            return;
-        }
-    }
-
-    if (game.attributeCont.Contains(name)) {
-        AttributeType type = game.attributeCont.Get(name).type;
-        StoreValue(name, value, type, game.attributeCont);
-        return;
-    }
-    return;
-}
-
 Attr ResolveTokensToAttr(vector<Token>& tokens, Game& game, vector<AttrCont>& localeStack) {
     assert(tokens.size() > 0);
 
@@ -207,10 +190,12 @@ AttrCont* GetObjectAttrContPtr(Game& game, AttrCont& cont, Token& nameToken) {
     throw RuntimeError("this type cannot have attributes ", nameToken);
 }
 
-AttrCont* GetObjectAttrContPtrFromIdentifier(vector<Token>& tokens, Game& game, vector<AttrCont>& localeStack) {
-    assert(tokens.size() > 0);
+AttrCont* GetObjectAttrContPtrFromIdentifier(vector<Token>::iterator tokenBegin, vector<Token>::iterator tokenEnd, Game& game, vector<AttrCont>& localeStack) {
+    assert(tokenBegin != tokenEnd);
 
-    auto tokenItr = tokens.begin();
+    int numberOfTokens = std::distance(tokenBegin, tokenEnd);
+
+    auto tokenItr = tokenBegin;
 
     string firstName = tokenItr->text;
     ++tokenItr;
@@ -219,19 +204,35 @@ AttrCont* GetObjectAttrContPtrFromIdentifier(vector<Token>& tokens, Game& game, 
     bool found = false;
 
     for (int i=localeStack.size()-1; !found && i>=0; i--) {
-        if (localeStack[i].Contains(tokens[0].text)) {
-            current = GetObjectAttrContPtr(game, localeStack[i], tokens[0]);
+        if (localeStack[i].Contains(firstName)) {
+            if (numberOfTokens == 1) {
+                return &localeStack[i];
+            }
+            current = GetObjectAttrContPtr(game, localeStack[i], *tokenBegin);
             found = true;
         }
     }
 
     if (!found && game.attributeCont.Contains(firstName)) {
-        current = GetObjectAttrContPtr(game, game.attributeCont, tokens[0]);
+        if (numberOfTokens == 1) {
+            return &game.attributeCont;
+        }   
+        current = GetObjectAttrContPtr(game, game.attributeCont, *tokenBegin);
         found = true;
     }
 
     if (!found) {
-        throw RuntimeError("Could not find attribute", tokens[0]);
+        throw RuntimeError("Could not find attribute", *tokenBegin);
+    }
+
+    while (tokenItr != tokenEnd) {
+        if (current->Contains(tokenItr->text)) {
+            current = GetObjectAttrContPtr(game, *current, *tokenItr);
+        } else {
+            throw RuntimeError(tokenItr->text + " not found in " + firstName, *tokenItr);
+        }
+
+        ++tokenItr;
     }
 
     return current;
@@ -356,13 +357,21 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
 
         if (nameTokens.size() == 2) {
             c.parentName = nameTokens[1].text;
+            // push a copy of the parent attributes onto the stack
+            localeStack.push_back(game.cards[c.parentName].attributes);
+        } else {
+            localeStack.push_back(AttrCont());
         }
-        expr.children.pop_back();
 
-        localeStack.push_back(AttrCont());
+        expr.children.pop_back();
+        
         for (auto e : expr.children) {
             RunExpression(e, game, expr.type, localeStack);
         }
+
+        /* 
+        * copy the new attributes into the card 
+        */
         c.attributes = std::move(localeStack.back());
         localeStack.pop_back();
 
@@ -377,7 +386,12 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
 
         if (expr.children.back().tokens.size() > 1) {
             storeGlobalTypesInGameAttrs = false;
-            attributeContainer = GetObjectAttrContPtrFromIdentifier(expr.children.back().tokens, game, localeStack);
+            attributeContainer = GetObjectAttrContPtrFromIdentifier(
+                expr.children.back().tokens.begin(),
+                expr.children.back().tokens.end()-1,
+                game,
+                localeStack
+            );
         }
         else if (localeStack.empty()) {
             attributeContainer = &game.attributeCont;
@@ -385,7 +399,7 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
             attributeContainer = &localeStack.back();
         }
 
-        string name = expr.children.back().tokens[0].text;
+        string name = expr.children.back().tokens.back().text;
         string type = (expr.children.end()-2)->tokens[0].text;
 
         Attr a;
@@ -406,6 +420,7 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
             a.f = 0.0f;
             a.type = AttributeType::FLOAT;
         }
+        // TODO: Fix local stack declarations overriding global ones
         else if (type == "visiblestack") {
             isGlobalType=true;
             Stack s;
@@ -437,8 +452,10 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
         }
 
         if (isGlobalType && storeGlobalTypesInGameAttrs) {
+            cout << "storing stack type" << type << " name " << name << " in the game attrs" << endl;
             game.attributeCont.Store(name, std::move(a));
         } else {
+            cout << "storing attr type " << type << " name " << name << endl;
             attributeContainer->Store(name, std::move(a));
         }
     }
@@ -450,7 +467,14 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
         
         Expression factor = FactorExpression(rightHandSide, game, localeStack);
         string value = factor.tokens[0].text;
-        SetValueAtCorrectLocale(name, value, game, localeStack);
+        AttrCont *attrCont = GetObjectAttrContPtrFromIdentifier(
+            assignmentTarget.tokens.begin(),
+            assignmentTarget.tokens.end(),
+            game,
+            localeStack
+        );
+        
+        StoreValue(name, value, attrCont->Get(name).type, *attrCont);
     }
     else if (expr.type == ExpressionType::SETUP_DECLARATION) {
         game.setup = expr;
