@@ -89,6 +89,7 @@ int main(int argc, char* argv[]) {
         Game game;
         vector<AttrCont> localeStack {};
         RunExpression(expr, game, ExpressionType::UNKNOWN, localeStack);
+        game.Print();
 
     } catch (UnexpectedTokenException e) {
         std::cout << GetErrorString("unexpected token", e.reason, e.t, lines) << endl;

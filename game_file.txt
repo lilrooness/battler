@@ -2,9 +2,14 @@ game TestGame start
 
     visiblestack InPlay
     hiddenstack Draw
+    int Draw.x
     privatestack Draw.h
+    int Draw.h.y
+    int Draw.h.a
+    int Draw.h.b
+    Draw.h.b = 6
     int someVarName
-    someVarName = 4 * 2
+    someVarName = 5*5
 
     card Ship start
         int shield
@@ -58,6 +63,6 @@ game TestGame start
         do Place
     end
     
-    players 2
+
 
 end

@@ -12,6 +12,9 @@ class AttributeContainer;
 enum class AttributeType {INT, FLOAT, STRING, BOOL, CARD_REF, STACK_REF, PLAYER, PLAYER_REF, PHASE_REF, UNDEFINED};
 enum class Scope {LOCAL, GAME};
 
+using std::cout;
+using std::endl;
+
 class OperationError {
     public:
         std::string reason;
@@ -34,6 +37,34 @@ class Attr {
             float f;
             int playerRef;
         };
+
+        std::string ToString() {
+            std::stringstream ss;
+            
+            if (type == AttributeType::BOOL) {
+                ss << "BOOL " << b;
+            }
+            else if (type == AttributeType::INT) {
+                ss << "INT " << i;
+            }
+            else if (type == AttributeType::FLOAT) {
+                ss << "FLOAT " << f;
+            }
+            else if (type == AttributeType::STRING) {
+                ss << "STRING " << s;
+            }
+            else if (type == AttributeType::CARD_REF) {
+                ss << "CARD_REF " << cardRef;
+            }
+            else if (type == AttributeType::PLAYER_REF) {
+                ss << "PLAYER_REF " << playerRef;
+            }
+            else if (type == AttributeType::STACK_REF) {
+                ss << "STACK_REF " << stackRef;
+            }
+
+            return ss.str();
+        }
 };
 
 class AttrCont {
@@ -52,6 +83,15 @@ class AttrCont {
 
         Attr& Get(std::string name) {
             return attrs[name];
+        }
+
+        std::string ToString(std::string prefix = "") {
+            std::stringstream ss;
+            for (auto pair : attrs) {
+                ss << endl << prefix << pair.first << ": " << pair.second.ToString();
+            }
+
+            return ss.str();
         }
 
     private:
@@ -101,4 +141,22 @@ class Game {
         std::vector<Player> players;
         Expression setup;
         Expression turn;
+
+        void Print() {
+            cout << "Cards:" << endl;
+
+            for (auto pair : cards) {
+                cout << pair.first << ":"<< pair.second.attributes.ToString("    ") << endl;
+            }
+
+            cout << "Stacks:" << endl;
+
+            for (auto pair : stacks) {
+                cout << pair.first << ":"<< pair.second.attributes.ToString("    ") << endl;
+            }
+
+            cout << "Game Attributes:" << endl;
+
+            cout << attributeCont.ToString("    ") << endl;
+        }
 };
