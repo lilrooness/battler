@@ -155,6 +155,12 @@ class Game {
                 cout << pair.first << ":"<< pair.second.attributes.ToString("    ") << endl;
             }
 
+            cout << "Players:" << endl;
+
+            for (int i=0; i<players.size(); i++) {
+                cout << i << ":"<< players[i].attributes.ToString("    ") << endl;
+            }
+
             cout << "Game Attributes:" << endl;
 
             cout << attributeCont.ToString("    ") << endl;

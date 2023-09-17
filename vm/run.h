@@ -598,30 +598,39 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
             throw RuntimeError("random move isn't implemented yet", sourceStackExpr.tokens[0]);
         }
     }
+    else if (expr.type == ExpressionType::PLAYERS_DECLARATION) {
+        auto nPlayersExpression = FactorExpression(expr.children[0], game, localeStack);
+        auto nPlayers = std::stoi(nPlayersExpression.tokens[0].text);
+
+        for (int i=0; i<nPlayers; i++) {
+            game.players.push_back(Player());
+        }
+    }
     else if (expr.type == ExpressionType::FOREACHPLAYER_DECLARATION) {
         Expression identExpression = expr.children.back();
+        expr.children.pop_back();
         if (identExpression.tokens.size() != 1 || identExpression.tokens[0].type != TokenType::name) {
             throw RuntimeError("must specify a for current player in foreachplayer loop", expr.tokens[0]);
         }
         string identifier = identExpression.tokens[0].text;
-        // TODO: do this in a loop
-        // AttrCont forLoopAttrs;
-        // Attr playerRef;
-        // playerRef.playerRef = 0;
-        // playerRef.type = AttributeType::PLAYER_REF;
-        // forLoopAttrs.Store(identifier, std::move(playerRef));
+        AttrCont forLoopAttrs;
+        localeStack.push_back(std::move(forLoopAttrs));
 
-        // localeStack.push_back(forLoopAttrs);
-
-        // for (auto child : expr.children) {
-        //     RunExpression(child, game, ExpressionType::FOREACHPLAYER_DECLARATION, localeStack);
-        // }
+        for (int i=0; i<game.players.size(); i++) {
+            Attr playerRef;
+            playerRef.playerRef = i;
+            playerRef.type = AttributeType::PLAYER_REF;
+            localeStack.back().Store(identifier, playerRef);
+            for (auto child : expr.children) {
+                RunExpression(child, game, ExpressionType::FOREACHPLAYER_DECLARATION, localeStack);
+            }
+        }
     }
     else {
         std::stringstream ss;
-        ss << "Unsupported Expression ";
+        ss << "Unsupported Expression: ";
         for (auto t : expr.tokens) {
-            ss << t.text;
+            ss << t.text << " ";
         }
         throw RuntimeError(ss.str(), expr.tokens[0]);
     }

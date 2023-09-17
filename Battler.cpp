@@ -91,6 +91,28 @@ int main(int argc, char* argv[]) {
         RunExpression(expr, game, ExpressionType::UNKNOWN, localeStack);
         game.Print();
 
+        // vector<AttrCont> runStack {};
+        // AttrCont scope;
+        // Attr currentPlayer;
+        // currentPlayer.playerRef = 0;
+        // currentPlayer.type = AttributeType::PLAYER_REF;
+        // scope.Store("me", std::move(currentPlayer));
+        // runStack.push_back(scope);
+        
+        // game.isRunning = true;
+
+        // for (int i=0; i<game.setup.children.size() && game.isRunning; i++) {
+        //     RunExpression(game.setup.children[i], game, ExpressionType::SETUP_DECLARATION, runStack);
+        // }
+
+        // while (game.isRunning) {
+
+        //     for (int i=0; i<game.turn.children.size() && game.isRunning; i++) {
+        //         RunExpression(game.turn.children[i], game, ExpressionType::TURN_DECLARATION, runStack);
+        //     }
+        // }
+
+
     } catch (UnexpectedTokenException e) {
         std::cout << GetErrorString("unexpected token", e.reason, e.t, lines) << endl;
         return 1;

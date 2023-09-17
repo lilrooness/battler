@@ -11,6 +11,12 @@ game TestGame start
     int someVarName
     someVarName = 5*5
 
+    players 2
+
+    foreachplayer p start
+        privatestack p.Hand
+    end
+
     card Ship start
         int shield
         int armour
