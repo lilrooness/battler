@@ -89,7 +89,7 @@ int main(int argc, char* argv[]) {
         Game game;
         vector<AttrCont> localeStack {};
         RunExpression(expr, game, ExpressionType::UNKNOWN, localeStack);
-        game.Print();
+        // game.Print();
 
         // vector<AttrCont> runStack {};
         // AttrCont scope;

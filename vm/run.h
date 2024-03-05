@@ -9,6 +9,8 @@
  * 
 */
 
+#include <cstdlib>
+
 #include "../Parser.h"
 #include "game.h"
 #include "../expression.h"
@@ -595,7 +597,31 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
             }
         }
         else if (sourceStackExpr.type == ExpressionType::STACK_MOVE_RANDOM_SOURCE) {
-            throw RuntimeError("random move isn't implemented yet", sourceStackExpr.tokens[0]);
+       	    // TODO: IMPLEMENT THIS
+
+	    vector<Card> randomPool;
+	    string cardParentTypeName = sourceStackExpr.tokens[0].text;
+	    
+	    for (auto it: game.cards) {
+	      if (it.second.parentName == cardParentTypeName) {
+		randomPool.push_back(it.second);
+	      }
+	    }
+
+	    Stack& target = game.stacks[targetName];
+	    vector<Card> cardsTaken;
+
+	    for (int i=0; i<moveNumber; i++) {
+	        cardsTaken.push_back(randomPool[rand()%randomPool.size()]);
+	    }
+
+	    if (expr.type == ExpressionType::STACK_MOVE) {
+                std::reverse(cardsTaken.begin(), cardsTaken.end());
+                target.cards.insert(target.cards.end(), cardsTaken.begin(), cardsTaken.end());
+            }
+            else if (expr.type == ExpressionType::STACK_MOVE_UNDER) {
+                target.cards.insert(target.cards.begin(), cardsTaken.begin(), cardsTaken.end());
+            }
         }
     }
     else if (expr.type == ExpressionType::PLAYERS_DECLARATION) {
