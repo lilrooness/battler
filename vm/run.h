@@ -505,6 +505,7 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
         Phase phase;
         phase.name = expr.tokens[0].text;
         phase.expression = expr;
+        game.phases[phase.name] = phase;
     }
     else if (expr.type == ExpressionType::STACK_MOVE || expr.type == ExpressionType::STACK_MOVE_UNDER) {
         auto sourceStackExpr = expr.children[0];
@@ -651,6 +652,24 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
                 RunExpression(child, game, ExpressionType::FOREACHPLAYER_DECLARATION, localeStack);
             }
         }
+    }
+    else if (expr.type == ExpressionType::DO_DECLARATION) {
+        auto phaseName = expr.tokens[1].text;
+        
+        if (game.phases.find(phaseName) == game.phases.end())
+        {
+            throw RuntimeError("Unknown phase", expr.tokens[1]);
+        }
+
+        auto phase = game.phases[phaseName];
+        std::cout << "Executing phase " << phase.name << " which has " << phase.expression.children.size() << " expressions" << std::endl;
+        
+        for (int i = 0; i < phase.expression.children.size(); i++) {
+            RunExpression(phase.expression.children[i], game, ExpressionType::DO_DECLARATION, localeStack);
+        }
+    }
+    else if (expr.type == ExpressionType::ONPLACE_DECLARATION) {
+        throw RuntimeError("onplace expressions are not yet implemented", expr.tokens[0]);
     }
     else {
         std::stringstream ss;

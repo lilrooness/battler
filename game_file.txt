@@ -52,12 +52,10 @@ game TestGame start
     end
 
     phase DrawPhase start
-
         Draw -> me.hand top 1
     end
 
     phase Place start
-
         onplace InPlay c start
             if c == InPlay.top-1 start
                 winneris me
@@ -68,7 +66,7 @@ game TestGame start
     end
 
     turn start
-        do Draw
+        do DrawPhase
         do Place
     end
     

@@ -88,7 +88,35 @@ int main(int argc, char* argv[]) {
 
         Game game;
         vector<AttrCont> localeStack {};
+        std::cout << "Initalizing . . ." << std::endl;
         RunExpression(expr, game, ExpressionType::UNKNOWN, localeStack);
+
+        std::cout << "Cards:" << std::endl;
+        // iterate through map pairs . . 
+        auto cardsStart = game.cards.begin();
+        while (cardsStart != game.cards.end())
+        {
+            std::cout << cardsStart->first << ", " << cardsStart->second.ID << " [" << std::endl;
+            std::cout << cardsStart->second.parentName << " ";
+            std::cout << cardsStart->second.attributes.ToString() << " ";
+
+            std::cout << "]" << endl << endl;
+            cardsStart++;
+        }
+
+
+        std::cout << "running " << game.name <<  " setup block" << std::endl;
+        for (int i = 0; i < game.setup.children.size(); i++)
+        {
+            RunExpression(game.setup.children[i], game, ExpressionType::UNKNOWN, localeStack);
+        }
+
+        std::cout << "running turn" << std::endl;
+        for (int i = 0; i < game.turn.children.size(); i++)
+        {
+            RunExpression(game.turn.children[i], game, ExpressionType::UNKNOWN, localeStack);
+        }
+
         // game.Print();
 
         // vector<AttrCont> runStack {};
