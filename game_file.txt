@@ -1,3 +1,6 @@
+# this game is an implementation of Snap, but with ships
+# from Eve Online
+
 game TestGame start
 
     visiblestack InPlay
@@ -52,24 +55,19 @@ game TestGame start
     end
 
     phase DrawPhase start
-        Draw -> me.hand top 1
+        Draw -> currentPlayer.Hand top 1
     end
 
     phase Place start
-        onplace InPlay c start
-            if c == InPlay.top-1 start
-                winneris me
-            end
-        end
+        # currentPlayer.Hand -> InPlay choose 1
 
-        me.hand -> InPlay choose 1
+        if InPlay.top == InPlay.top-1 start
+            winneris currentPlayer
+        end
     end
 
     turn start
         do DrawPhase
         do Place
     end
-    
-
-
 end

@@ -71,6 +71,10 @@ int main(int argc, char* argv[]) {
             auto resPair = getNextToken(start, end);
             Token t = resPair.first;
 
+            if (t.type == TokenType::comment) {
+                break;
+            }
+
             if (t.type != TokenType::space) {
                 
                 t.l = lines.size();
@@ -110,36 +114,19 @@ int main(int argc, char* argv[]) {
         {
             RunExpression(game.setup.children[i], game, ExpressionType::UNKNOWN, localeStack);
         }
+        game.Print();
 
         std::cout << "running turn" << std::endl;
+        auto currentPlayerAttr = Attr{ AttributeType::PLAYER_REF };
+        currentPlayerAttr.playerRef = 0;
+        auto turnAttrs =  AttrCont();
+        turnAttrs.Store("currentPlayer", currentPlayerAttr);
+        localeStack.push_back(turnAttrs);
         for (int i = 0; i < game.turn.children.size(); i++)
         {
             RunExpression(game.turn.children[i], game, ExpressionType::UNKNOWN, localeStack);
         }
-
-        // game.Print();
-
-        // vector<AttrCont> runStack {};
-        // AttrCont scope;
-        // Attr currentPlayer;
-        // currentPlayer.playerRef = 0;
-        // currentPlayer.type = AttributeType::PLAYER_REF;
-        // scope.Store("me", std::move(currentPlayer));
-        // runStack.push_back(scope);
-        
-        // game.isRunning = true;
-
-        // for (int i=0; i<game.setup.children.size() && game.isRunning; i++) {
-        //     RunExpression(game.setup.children[i], game, ExpressionType::SETUP_DECLARATION, runStack);
-        // }
-
-        // while (game.isRunning) {
-
-        //     for (int i=0; i<game.turn.children.size() && game.isRunning; i++) {
-        //         RunExpression(game.turn.children[i], game, ExpressionType::TURN_DECLARATION, runStack);
-        //     }
-        // }
-
+        localeStack.pop_back();
 
     } catch (UnexpectedTokenException e) {
         std::cout << GetErrorString("unexpected token", e.reason, e.t, lines) << endl;

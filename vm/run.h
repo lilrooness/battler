@@ -110,7 +110,7 @@ Attr ResolveTokensToAttr(vector<Token>& tokens, Game& game, vector<AttrCont>& lo
     bool found = false;
 
 
-    for (int i=localeStack.size()-1; !found && i>=0; i--) {
+    for (int i = localeStack.size() - 1; !found && i >= 0; i--) {
         if (localeStack[i].Contains(firstName)) {
             current = localeStack[i].Get(firstName);
             found = true;
@@ -122,8 +122,16 @@ Attr ResolveTokensToAttr(vector<Token>& tokens, Game& game, vector<AttrCont>& lo
         found = true;
     }
 
+    if (!found && game.cards.find(firstName) != game.cards.end()) {
+        current.type = AttributeType::CARD_REF;
+        current.cardRef = firstName;
+        found = true;
+    }
+
     if (!found) {
-        throw RuntimeError("Could not find name", tokens[0]);
+        std::stringstream ss;
+        ss << "Could not find name: \""<< tokens[0].text << "\"";
+        throw RuntimeError(ss.str(), tokens[0]);
     }
 
     while (tokenItr != tokens.end()) {
@@ -136,7 +144,20 @@ Attr ResolveTokensToAttr(vector<Token>& tokens, Game& game, vector<AttrCont>& lo
                 }
             }
             else if (current.type == AttributeType::STACK_REF) {
-                if (game.stacks[current.stackRef].attributes.Contains(tokenItr->text)) {
+                if (tokenItr->text == "top") {
+                    auto stack = game.stacks[current.stackRef];
+                    auto stackRef = current.stackRef;
+                    current = Attr();
+                    current.type = AttributeType::STACK_POSITION_REF;
+                    // the top of the stack is the index of the last card in the stack
+                    current.stackPositionRef = { stackRef, stack.cards.size()-1 };
+                } else if (tokenItr->text == "bottom") {
+                    auto stackRef = current.stackRef;
+                    current = Attr();
+                    current.type = AttributeType::STACK_POSITION_REF;
+                    // the bottom of the stack is always 0
+                    current.stackPositionRef = { stackRef, 0 };
+                } else if (game.stacks[current.stackRef].attributes.Contains(tokenItr->text)) {
                     current = game.stacks[current.stackRef].attributes.Get(tokenItr->text);
                 } else {
                     throw RuntimeError("No attr found with this name on this stack", *tokenItr);
@@ -283,6 +304,8 @@ Expression FactorExpression(Expression& expr, Game& game, vector<AttrCont>& stac
 
                 Expression e;
                 Token t;
+                t.c = expr.tokens[0].c;
+                t.l = expr.tokens[0].l;
                 t.text = std::to_string(result);
                 t.type = TokenType::number;
                 e.tokens = {t};
@@ -301,9 +324,25 @@ Expression FactorExpression(Expression& expr, Game& game, vector<AttrCont>& stac
 
                 Expression e;
                 Token t;
+                t.c = expr.tokens[0].c;
+                t.l = expr.tokens[0].l;
                 t.text = std::to_string(result);
                 t.type = TokenType::number;
-                e.tokens = {t};
+                e.tokens = { t };
+                e.type = ExpressionType::FACTOR;
+                return e;
+            } else if (leftSideType == AttributeType::STACK_POSITION_REF) {
+                int right = rightAttr.i;
+                auto stackName = std::get<0>(leftAttr.stackPositionRef);
+                auto stack = game.stacks[stackName];
+                int stackPositionIndex = std::get<1>(leftAttr.stackPositionRef);
+                Expression e;
+                Token t;
+                t.c = expr.tokens[0].c;
+                t.l = expr.tokens[0].l;
+                t.type = TokenType::name;
+                t.text = stack.cards[stackPositionIndex - 1 - right].name;
+                e.tokens = { t };
                 e.type = ExpressionType::FACTOR;
                 return e;
             } else {
@@ -321,6 +360,8 @@ Expression FactorExpression(Expression& expr, Game& game, vector<AttrCont>& stac
                 Token t;
                 t.text = std::to_string(result);
                 t.type = TokenType::number;
+                t.c = expr.tokens[0].c;
+                t.l = expr.tokens[0].l;
                 e.tokens = {t};
                 e.type = ExpressionType::FACTOR;
                 return e;
@@ -337,6 +378,8 @@ Expression FactorExpression(Expression& expr, Game& game, vector<AttrCont>& stac
 
                 Expression e;
                 Token t;
+                t.c = expr.tokens[0].c;
+                t.l = expr.tokens[0].l;
                 t.text = std::to_string(result);
                 t.type = TokenType::number;
                 e.tokens = {t};
@@ -346,8 +389,58 @@ Expression FactorExpression(Expression& expr, Game& game, vector<AttrCont>& stac
                 throw RuntimeError("You cannot divide these types", expr.tokens[0]);
             }
             break;
+        case ExpressionType::EQUALITY_TEST:
+            if (leftAttr.type == AttributeType::STACK_POSITION_REF)
+            {
+                auto stack = game.stacks[std::get<0>(leftAttr.stackPositionRef)];
+                leftAttr.type = AttributeType::CARD_REF;
+                leftSideType = leftAttr.type;
+                leftAttr.cardRef = stack.cards[std::get<1>(leftAttr.stackPositionRef)].name;
+            }
+            if (rightAttr.type == AttributeType::STACK_POSITION_REF)
+            {
+                auto stack = game.stacks[std::get<0>(rightAttr.stackPositionRef)];
+                rightAttr.type = AttributeType::CARD_REF;
+                rightSideType = rightAttr.type;
+                rightAttr.cardRef = stack.cards[std::get<1>(rightAttr.stackPositionRef)].name;
+            }
+            if (leftSideType == AttributeType::INT && rightSideType == AttributeType::INT) {
+                Expression e;
+                Token t;
+                t.c = expr.tokens[0].c;
+                t.l = expr.tokens[0].l;
+                t.type = TokenType::name;
+                if (leftAttr.i == rightAttr.i) {
+                    t.text = "true";
+                } else {
+                    t.text = "false";
+                }
+
+
+                e.tokens = { t };
+                e.type = ExpressionType::FACTOR;
+                return e;
+            } else if (leftSideType == AttributeType::CARD_REF && rightSideType == AttributeType::CARD_REF) {
+                Expression e;
+                Token t;
+                t.c = expr.tokens[0].c;
+                t.l = expr.tokens[0].l;
+                t.type = TokenType::name;
+                if (leftAttr.cardRef == rightAttr.cardRef) {
+                    t.text = "true";
+                }
+                else {
+                    t.text = "false";
+                }
+
+                e.tokens = { t };
+                e.type = ExpressionType::FACTOR;
+                return e;
+            } else {
+                throw RuntimeError("these types cannot be tested for equality", expr.tokens[0]);
+            }
             break;
-        case ExpressionType::EQUALITY_TEST: throw RuntimeError("TODO: Joe really needs to implement equality testing", expr.tokens[0]);
+        
     }
     throw RuntimeError("Unsupported Operation", expr.tokens[0]);
 }
@@ -652,6 +745,7 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
                 RunExpression(child, game, ExpressionType::FOREACHPLAYER_DECLARATION, localeStack);
             }
         }
+        localeStack.pop_back();
     }
     else if (expr.type == ExpressionType::DO_DECLARATION) {
         auto phaseName = expr.tokens[1].text;
@@ -662,7 +756,6 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
         }
 
         auto phase = game.phases[phaseName];
-        std::cout << "Executing phase " << phase.name << " which has " << phase.expression.children.size() << " expressions" << std::endl;
         
         for (int i = 0; i < phase.expression.children.size(); i++) {
             RunExpression(phase.expression.children[i], game, ExpressionType::DO_DECLARATION, localeStack);
@@ -671,7 +764,35 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
     else if (expr.type == ExpressionType::ONPLACE_DECLARATION) {
         throw RuntimeError("onplace expressions are not yet implemented", expr.tokens[0]);
     }
-    else {
+    else if (expr.type == ExpressionType::WINER_DECLARATION) {
+        throw RuntimeError("winneris expressions are not yet implemented", expr.tokens[0]);
+    }
+    else if (expr.type == ExpressionType::IF_DECLARATION) {
+        auto booleanExpression = expr.children[1];
+        auto block = expr.children[0];
+
+        auto booleanResult = FactorExpression(booleanExpression, game, localeStack);
+        bool result{ false };
+        if (booleanResult.tokens[0].type == TokenType::name) {
+            if (booleanResult.tokens[0].text == "true") {
+                result = true;
+            }
+        }
+        else if (booleanResult.tokens[0].type == TokenType::number) {
+            int n = stoi(booleanResult.tokens[0].text);
+            if (n) {
+                result = true;
+            }
+        }
+        else {
+            throw RuntimeError("unsupported boolean expression", booleanExpression.tokens[0]);
+        }
+
+        if (result) {
+            RunExpression(block, game, ExpressionType::IF_DECLARATION, localeStack);
+        }
+
+    } else {
         std::stringstream ss;
         ss << "Unsupported Expression: ";
         for (auto t : expr.tokens) {

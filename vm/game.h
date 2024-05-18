@@ -9,7 +9,7 @@
 class Card;
 class AttributeContainer;
 
-enum class AttributeType {INT, FLOAT, STRING, BOOL, CARD_REF, STACK_REF, PLAYER, PLAYER_REF, PHASE_REF, UNDEFINED};
+enum class AttributeType {INT, FLOAT, STRING, BOOL, CARD_REF, STACK_REF, PLAYER, PLAYER_REF, PHASE_REF, STACK_POSITION_REF, UNDEFINED};
 enum class Scope {LOCAL, GAME};
 
 using std::cout;
@@ -25,9 +25,12 @@ enum class StackType {VISIBLE, PRIVATE, HIDDEN};
 
 class Attr {
     public:
+        Attr() {}
+        Attr(AttributeType t) : type(t) {}
         AttributeType type;
         std::string s;
         std::string stackRef;
+        std::tuple<std::string, int> stackPositionRef;
         std::string cardRef;
         std::string phaseRef;
         
@@ -61,6 +64,9 @@ class Attr {
             }
             else if (type == AttributeType::STACK_REF) {
                 ss << "STACK_REF " << stackRef;
+            }
+            else if (type == AttributeType::STACK_POSITION_REF) {
+                ss << "STACK_POSITION_REF" << std::get<0>(stackPositionRef) << " " << std::get<1>(stackPositionRef);
             }
 
             return ss.str();
@@ -141,6 +147,7 @@ class Game {
         std::vector<Player> players;
         Expression setup;
         Expression turn;
+        int currentPlayerIndex;
 
         void Print() {
             cout << "Cards:" << endl;

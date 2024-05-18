@@ -26,6 +26,7 @@ enum class TokenType {
 	dot,
 	move,
 	move_under,
+	comment,
 };
 
 
@@ -57,9 +58,13 @@ std::pair<Token, std::string::iterator> getNextToken(
 
 	if (*begin == ' ') {
 		t.type = TokenType::space;
-		for (;begin != end && *begin == ' '; begin++) {
+		for (; begin != end && *begin == ' '; begin++) {
 			t.text.push_back(*begin);
 		}
+		return make_pair(t, begin);
+	}  else if (*begin == '#') {
+		t.type = TokenType::comment;
+		t.text = '#';
 		return make_pair(t, begin);
 	} else if (*begin == '=') {
 		t.text.push_back('=');
