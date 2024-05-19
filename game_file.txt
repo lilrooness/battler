@@ -1,6 +1,8 @@
 # this game is an implementation of Snap, but with ships
 # from Eve Online
 
+# it's a lot bigger than it has to be
+
 game TestGame start
 
     # number of players
@@ -11,10 +13,13 @@ game TestGame start
     
     # a hidden stack
     hiddenstack Draw
+
     # stacks can have member attributes
     int Draw.x
+
     # member attributes can even be other stacks!
     privatestack Draw.h
+
     # and they can have attributes too!
     int Draw.h.y
     int Draw.h.a
@@ -25,13 +30,16 @@ game TestGame start
     someVarName = 5*5
 
     
+    # cards!
     card Ship start
+        # card attributes
         int shield
         int armour
         int hull
         int attack
     end
 
+    # child cards
     card Atron Ship start
         shield = 300 + 1
         armour = 350 * 2 - 1
@@ -39,21 +47,26 @@ game TestGame start
         attack = 50 + 60 * 6 - 5 / 4
     end
     
+    # you dont have to set the attributes
     card Kestral Ship start end
     card Rifter Ship start end
     card Apocolypse Ship start end
     card Comet Ship start end
 
+    # move random cards into a stack
     random Ship -> Draw top 100
-    Draw -> InPlay top 5
+
+    # move cards between stacks
+    Draw -> InPlay top 2
 
 
+    # access players, you can run things outside of blocks
     foreachplayer p start
         privatestack p.Hand
     end
 
+    # a setup block, run once at the start of the game
     setup start
-
         foreachplayer p start
             privatestack p.Hand
             
@@ -62,21 +75,27 @@ game TestGame start
         end
     end
 
+    # a phase declaration, like a function
     phase DrawPhase start
-        #Draw -> currentPlayer.Hand top 1
+        Draw -> currentPlayer.Hand top 1
     end
 
     phase Place start
-        # currentPlayer.Hand -> InPlay choose 1
+        # currentPlayer is set while a turn is executing
+        currentPlayer.Hand -> InPlay top 1
 
-        Draw -> InPlay top 1
+        # Draw -> InPlay top 1
 
+        # compare cards from positions in stacks
         if InPlay.top == InPlay.top-1 start
+            # declare a wiener
             winneris currentPlayer
         end
     end
 
+    # runs every turn
     turn start
+        # run a phase
         do DrawPhase
         do Place
     end

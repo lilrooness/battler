@@ -426,7 +426,6 @@ Expression FactorExpression(Expression& expr, Game& game, vector<AttrCont>& stac
                 t.c = expr.tokens[0].c;
                 t.l = expr.tokens[0].l;
                 t.type = TokenType::name;
-                std::cout << leftAttr.cardRef << "==" << rightAttr.cardRef << std::endl;
                 if (leftAttr.cardRef == rightAttr.cardRef) {
                     t.text = "true";
                 }

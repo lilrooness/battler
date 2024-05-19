@@ -111,6 +111,7 @@ int main(int argc, char* argv[]) {
 
         for  (int i =0; i<11; i++)
         {
+            cout << "turn " << i << endl;
             for (int i = 0; i < game.turn.children.size(); i++)
             {
                 RunExpression(game.turn.children[i], game, ExpressionType::UNKNOWN, localeStack);
