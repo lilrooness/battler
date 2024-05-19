@@ -2,8 +2,11 @@
 
 ### A language for card games
 
-Battler is an interpreter and card-game engine, an example of a "color snap" game can 
+Battler is an interpreter and card-game engine, an example of a Snap game can 
 be seen below.
+
+The games currently run automatically without any player interaction, but that is just over the horizon after I move to
+a bytecode implementation. It currently uses a tree-walk, which is hella slow.
 
 Use this project's simple CMakeLists.txt to build it, although it doesn't link
 with anything except for the C++ standard lib
@@ -11,69 +14,96 @@ with anything except for the C++ standard lib
 Run the interpreter against a game file:
 `.\Battler.exe game_file.txt`
 
-if you try to run the `game_file.txt` currently, you may get a "not implemented yet" error like this one:
+
+### Eve Online Snap Example Game
 
 ```
-Error: unexpected token on line 35
-    phase DrawPhase start
-____^
+# this game is an implementation of Snap, but with ships from Eve Online
 
-Reason: phase declarations are not implemented yet ... :(
-```
+game TestGame start
 
-the current game_file.txt is an experiment and doesn't really make sense as a game. Some Eve Ships are in there, but only because that's what was in my head at the time :)
-
-
-### Color Snap Example Game
-
-```
-game ColorSnap start
-
-    visiblestack InPlay
-    hiddenstack Draw
-
+    # number of players
     players 2
 
-    card Color start
+    visiblestack InPlay
+    
+    # a hidden stack
+    hiddenstack Draw
+    
+    # Now for some cards
+    card Ship start
+        # card attributes, we don't use any of these attributes
+        int shield
+        int armour
+        int hull
+        int attack
     end
 
-    card red Color start end
-    card yellow Color start end
-    card green Color start end
-    card blue Color start end
-    card circle Color start end
+    # child cards
+    card Atron Ship start end
+    card Kestral Ship start end
+    card Rifter Ship start end
+    card Apocolypse Ship start end
+    card Comet Ship start end
 
+    # move random cards of type Ship into a stack
+    random Ship -> Draw top 100
+
+    # move cards between stacks
+    Draw -> InPlay top 2
+
+    # a setup block, run once at the start of the game
     setup start
-
-        foreach player p start
+        foreachplayer p start
             privatestack p.Hand
             
-            random Color -> Draw top 10
-            Draw -> p.Hand top 3
+            random Ship -> Draw top 10
+            Draw ->_ p.Hand bottom 3
         end
     end
 
+    # a phase declaration, like a function
     phase DrawPhase start
-
-        Draw -> me.hand top 1
+        Draw -> currentPlayer.Hand top 1
     end
 
     phase Place start
+        # currentPlayer is set while a turn is executing
+        currentPlayer.Hand -> InPlay top 1
 
-        onplace InPlay c start
-            if c == InPlay.top-1 start
-                winneris me
-            end
+        # Draw -> InPlay top 1
+
+        # compare cards from positions in stacks
+        if InPlay.top == InPlay.top-1 start
+            # declare a wiener
+            winneris currentPlayer
         end
-
-        me.hand -> InPlay choose 1
     end
 
+    # runs every turn
     turn start
-        do Draw
+        # run a phase
+        do DrawPhase
         do Place
     end
-
 end
 
+
+```
+
+
+If you run the above game in the interpreter, you will get something like this output, showing it executing each turn automatically until ther is a winner
+```
+running turn
+turn 0 player 0
+turn 1 player 1
+turn 2 player 0
+turn 3 player 1
+turn 4 player 0
+turn 5 player 1
+turn 6 player 0
+turn 7 player 1
+turn 8 player 0
+turn 9 player 1
+the winner is player 1
 ```

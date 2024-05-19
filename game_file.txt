@@ -60,11 +60,6 @@ game TestGame start
     Draw -> InPlay top 2
 
 
-    # access players, you can run things outside of blocks
-    foreachplayer p start
-        privatestack p.Hand
-    end
-
     # a setup block, run once at the start of the game
     setup start
         foreachplayer p start
