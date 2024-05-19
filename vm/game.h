@@ -137,6 +137,7 @@ class Phase {
 
 class Game {
     public:
+        Game() : winner(-1) {}
         int ID;
         std::string name;
         AttrCont attributeCont;
@@ -148,6 +149,7 @@ class Game {
         Expression setup;
         Expression turn;
         int currentPlayerIndex;
+        int winner;
 
         void Print() {
             cout << "Cards:" << endl;

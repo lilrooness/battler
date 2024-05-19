@@ -109,15 +109,17 @@ int main(int argc, char* argv[]) {
         turnAttrs.Store("currentPlayer", currentPlayerAttr);
         localeStack.push_back(turnAttrs);
 
-        for  (int i =0; i<11; i++)
-        {
-            cout << "turn " << i << endl;
+        int turn = 0;
+        while (game.winner < 0) {
+            localeStack.back().Get("currentPlayer").playerRef = turn % game.players.size();
+            cout << "turn " << turn++ << " player " << localeStack.back().Get("currentPlayer").playerRef << endl;
             for (int i = 0; i < game.turn.children.size(); i++)
             {
                 RunExpression(game.turn.children[i], game, ExpressionType::UNKNOWN, localeStack);
             }
         }
 
+        cout << "the winner is player " << game.winner << std::endl;
 
         localeStack.pop_back();
 

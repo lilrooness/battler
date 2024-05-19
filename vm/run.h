@@ -764,7 +764,12 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
         throw RuntimeError("onplace expressions are not yet implemented", expr.tokens[0]);
     }
     else if (expr.type == ExpressionType::WINER_DECLARATION) {
-        throw RuntimeError("winneris expressions are not yet implemented", expr.tokens[0]);
+        Attr winnerAttr = ResolveTokensToAttr(expr.tokens, game, localeStack);
+        if (winnerAttr.type != AttributeType::PLAYER_REF) {
+            throw RuntimeError("Victory must be assigned with a player reference.", expr.tokens[0]);
+        }
+
+        game.winner = winnerAttr.playerRef;
     }
     else if (expr.type == ExpressionType::IF_DECLARATION) {
         auto booleanExpression = expr.children[1];
