@@ -341,7 +341,7 @@ Expression FactorExpression(Expression& expr, Game& game, vector<AttrCont>& stac
                 t.c = expr.tokens[0].c;
                 t.l = expr.tokens[0].l;
                 t.type = TokenType::name;
-                t.text = stack.cards[stackPositionIndex - 1 - right].name;
+                t.text = stack.cards[stackPositionIndex - right].name;
                 e.tokens = { t };
                 e.type = ExpressionType::FACTOR;
                 return e;
@@ -426,6 +426,7 @@ Expression FactorExpression(Expression& expr, Game& game, vector<AttrCont>& stac
                 t.c = expr.tokens[0].c;
                 t.l = expr.tokens[0].l;
                 t.type = TokenType::name;
+                std::cout << leftAttr.cardRef << "==" << rightAttr.cardRef << std::endl;
                 if (leftAttr.cardRef == rightAttr.cardRef) {
                     t.text = "true";
                 }
@@ -646,13 +647,14 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
             // the target Expression type determines we want to take cards from the source stack
             if (targetStackExpr.type == ExpressionType::STACK_SOURCE_TOP) {
                 // take cards from the top of the source deck
-                int limit = source.cards.size() - std::min(
+                
+                int limit = std::min(
                     static_cast<int>(source.cards.size()),
                     moveNumber
                 );
 
                 auto start = source.cards.end() - limit;
-                auto end = source.cards.end() - 1;
+                auto end = source.cards.end();
 
                 cardsTaken = vector<Card>(start, end);
                 source.cards.erase(start, end);
@@ -691,25 +693,23 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
             }
         }
         else if (sourceStackExpr.type == ExpressionType::STACK_MOVE_RANDOM_SOURCE) {
-       	    // TODO: IMPLEMENT THIS
-
-	    vector<Card> randomPool;
-	    string cardParentTypeName = sourceStackExpr.tokens[0].text;
+	        vector<Card> randomPool;
+	        string cardParentTypeName = sourceStackExpr.tokens[0].text;
 	    
-	    for (auto it: game.cards) {
-	      if (it.second.parentName == cardParentTypeName) {
-		randomPool.push_back(it.second);
-	      }
-	    }
+	        for (auto it: game.cards) {
+	          if (it.second.parentName == cardParentTypeName) {
+		    randomPool.push_back(it.second);
+	          }
+	        }
 
-	    Stack& target = game.stacks[targetName];
-	    vector<Card> cardsTaken;
+	        Stack& target = game.stacks[targetName];
+	        vector<Card> cardsTaken;
 
-	    for (int i=0; i<moveNumber; i++) {
-	        cardsTaken.push_back(randomPool[rand()%randomPool.size()]);
-	    }
+	        for (int i=0; i<moveNumber; i++) {
+	            cardsTaken.push_back(randomPool[rand()%randomPool.size()]);
+	        }
 
-	    if (expr.type == ExpressionType::STACK_MOVE) {
+	        if (expr.type == ExpressionType::STACK_MOVE) {
                 std::reverse(cardsTaken.begin(), cardsTaken.end());
                 target.cards.insert(target.cards.end(), cardsTaken.begin(), cardsTaken.end());
             }

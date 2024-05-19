@@ -3,20 +3,28 @@
 
 game TestGame start
 
+    # number of players
+    players 2
+
+
     visiblestack InPlay
+    
+    # a hidden stack
     hiddenstack Draw
+    # stacks can have member attributes
     int Draw.x
+    # member attributes can even be other stacks!
     privatestack Draw.h
+    # and they can have attributes too!
     int Draw.h.y
     int Draw.h.a
     int Draw.h.b
     Draw.h.b = 6
+
     int someVarName
     someVarName = 5*5
 
-    players 2
-
-
+    
     card Ship start
         int shield
         int armour
@@ -37,7 +45,7 @@ game TestGame start
     card Comet Ship start end
 
     random Ship -> Draw top 100
-    Draw ->_ InPlay bottom 10
+    Draw -> InPlay top 5
 
 
     foreachplayer p start
@@ -55,11 +63,13 @@ game TestGame start
     end
 
     phase DrawPhase start
-        Draw -> currentPlayer.Hand top 1
+        #Draw -> currentPlayer.Hand top 1
     end
 
     phase Place start
         # currentPlayer.Hand -> InPlay choose 1
+
+        Draw -> InPlay top 1
 
         if InPlay.top == InPlay.top-1 start
             winneris currentPlayer

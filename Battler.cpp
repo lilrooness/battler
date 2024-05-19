@@ -95,20 +95,6 @@ int main(int argc, char* argv[]) {
         std::cout << "Initalizing . . ." << std::endl;
         RunExpression(expr, game, ExpressionType::UNKNOWN, localeStack);
 
-        std::cout << "Cards:" << std::endl;
-        // iterate through map pairs . . 
-        auto cardsStart = game.cards.begin();
-        while (cardsStart != game.cards.end())
-        {
-            std::cout << cardsStart->first << ", " << cardsStart->second.ID << " [" << std::endl;
-            std::cout << cardsStart->second.parentName << " ";
-            std::cout << cardsStart->second.attributes.ToString() << " ";
-
-            std::cout << "]" << endl << endl;
-            cardsStart++;
-        }
-
-
         std::cout << "running " << game.name <<  " setup block" << std::endl;
         for (int i = 0; i < game.setup.children.size(); i++)
         {
@@ -122,10 +108,16 @@ int main(int argc, char* argv[]) {
         auto turnAttrs =  AttrCont();
         turnAttrs.Store("currentPlayer", currentPlayerAttr);
         localeStack.push_back(turnAttrs);
-        for (int i = 0; i < game.turn.children.size(); i++)
+
+        for  (int i =0; i<11; i++)
         {
-            RunExpression(game.turn.children[i], game, ExpressionType::UNKNOWN, localeStack);
+            for (int i = 0; i < game.turn.children.size(); i++)
+            {
+                RunExpression(game.turn.children[i], game, ExpressionType::UNKNOWN, localeStack);
+            }
         }
+
+
         localeStack.pop_back();
 
     } catch (UnexpectedTokenException e) {
