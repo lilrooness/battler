@@ -481,7 +481,7 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
             RunExpression(e, game, expr.type, localeStack);
         }
 
-        // copy the new attributes into the card 
+        // copy the new attributes into the card
         c.attributes = std::move(localeStack.back());
         localeStack.pop_back();
 

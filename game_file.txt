@@ -5,14 +5,16 @@
 
 game TestGame start
 
-    # number of players
-    players 2
+
 
 
     visiblestack InPlay
     
     # a hidden stack
     hiddenstack Draw
+
+    # number of players
+    players 2
 
     # stacks can have member attributes
     int Draw.x

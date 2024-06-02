@@ -10,6 +10,8 @@
 #include "vm/game.h"
 #include "vm/run.h"
 
+#include "Compiler.h"
+
 void TestEvaluateExpression(Expression &expr) {
     using std::cout;
     using std::endl;
@@ -123,6 +125,9 @@ int main(int argc, char* argv[]) {
 
         localeStack.pop_back();
 
+        Program program;
+        program.compile(expr);
+
     } catch (UnexpectedTokenException e) {
         std::cout << GetErrorString("unexpected token", e.reason, e.t, lines) << endl;
         return 1;
@@ -138,6 +143,9 @@ int main(int argc, char* argv[]) {
     } catch (OperationError e) {
         std::cout << e.reason << endl;
         return 1;
+    }
+    catch (CompileError e) {
+        std::cout << GetErrorString("compiler error", e.reason, e.t, lines) << endl;
     }
 
     return 0;

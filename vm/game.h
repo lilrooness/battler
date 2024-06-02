@@ -1,3 +1,6 @@
+#ifndef GAME_H
+#define GAME_H
+
 #pragma once
 
 #include <memory>
@@ -175,3 +178,5 @@ class Game {
             cout << attributeCont.ToString("    ") << endl;
         }
 };
+
+#endif // !GAME_H
