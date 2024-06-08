@@ -20,7 +20,7 @@ using std::tuple;
 enum class OpcodeType
 {
 	// Block headers
-	GAME_BLK_HEADER,
+	GAME_BLK_HEADER = 0,
 	CARD_BLK_HEADER,
 	SETUP_BLK_HEADER,
 	PHASE_BLK_HEADER,
@@ -29,8 +29,30 @@ enum class OpcodeType
 	FOREACHPLAYER_BLK_HEADER,
 	BLK_END,
 
-	// Other things
-	STACK_MOVE,
+	// Math & Logic
+	ADD,
+	SUBTRACT,
+	MULTIPLY,
+	DIVIDE,
+	PLAYERS_L_VALUE,
+	L_VALUE_DOT_SEPERATED_REF_CHAIN,
+	PLAYERS_R_VALUE,
+	L_VALUE,
+	R_VALUE_REF,
+	R_VALUE_DOT_SEPERATED_REF_CHAIN,
+	DOT_SEPERATED_REF_CHAIN_END,
+	R_VALUE,
+	COMPARE,
+
+	// Stack operations
+	STACK_SOURCE_RANDOM_CARD_TYPE,
+	STACK_SOURCE_TOP,
+	STACK_SOURCE_BOTTOM,
+	STACK_SOURCE_CHOOSE,
+	STACK_DEST_TOP,
+	STACK_DEST_BOTTOM,
+
+	// other declarations
 	ATTR_DECL,
 	ATTR_ASSIGN,
 	ATTR_DATA_TYPE,
@@ -38,6 +60,7 @@ enum class OpcodeType
 	DO_DECL,
 	WINNER_DECL,
 
+	// just in case we need it
 	NO_OP,
 };
 
@@ -74,10 +97,18 @@ private:
 	vector<int> m_ints;
 	vector<bool> m_bools;
 
+	int m_setup_index;
+	int m_turn_index;
+
+	unordered_map<string, int> m_phase_indexes;
+
 	// while compiling
 	//unordered_map<string, tuple<TYPE_CODE_T, DATA_IX_T> > m_addresses;
 public:
 	void compile(Expression);
+	void factor_expression(Expression);
+	void compile_name(vector<Token>, bool lvalue);
+	vector<Opcode> opcodes();
 };
 
 class CompileError {

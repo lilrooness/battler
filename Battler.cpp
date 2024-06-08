@@ -88,44 +88,45 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    Program program;
     try {
 
         Expression expr = GetExpression(tokens.begin(), tokens.end());
 
-        Game game;
-        vector<AttrCont> localeStack {};
-        std::cout << "Initalizing . . ." << std::endl;
-        RunExpression(expr, game, ExpressionType::UNKNOWN, localeStack);
+        //Game game;
+        //vector<AttrCont> localeStack {};
+        //std::cout << "Initalizing . . ." << std::endl;
+        //RunExpression(expr, game, ExpressionType::UNKNOWN, localeStack);
 
-        std::cout << "running " << game.name <<  " setup block" << std::endl;
-        for (int i = 0; i < game.setup.children.size(); i++)
-        {
-            RunExpression(game.setup.children[i], game, ExpressionType::UNKNOWN, localeStack);
-        }
-        game.Print();
+        //std::cout << "running " << game.name <<  " setup block" << std::endl;
+        //for (int i = 0; i < game.setup.children.size(); i++)
+        //{
+        //    RunExpression(game.setup.children[i], game, ExpressionType::UNKNOWN, localeStack);
+        //}
+        //game.Print();
 
-        std::cout << "running turn" << std::endl;
-        auto currentPlayerAttr = Attr{ AttributeType::PLAYER_REF };
-        currentPlayerAttr.playerRef = 0;
-        auto turnAttrs =  AttrCont();
-        turnAttrs.Store("currentPlayer", currentPlayerAttr);
-        localeStack.push_back(turnAttrs);
+        //std::cout << "running turn" << std::endl;
+        //auto currentPlayerAttr = Attr{ AttributeType::PLAYER_REF };
+        //currentPlayerAttr.playerRef = 0;
+        //auto turnAttrs =  AttrCont();
+        //turnAttrs.Store("currentPlayer", currentPlayerAttr);
+        //localeStack.push_back(turnAttrs);
 
-        int turn = 0;
-        while (game.winner < 0) {
-            localeStack.back().Get("currentPlayer").playerRef = turn % game.players.size();
-            cout << "turn " << turn++ << " player " << localeStack.back().Get("currentPlayer").playerRef << endl;
-            for (int i = 0; i < game.turn.children.size(); i++)
-            {
-                RunExpression(game.turn.children[i], game, ExpressionType::UNKNOWN, localeStack);
-            }
-        }
+        //int turn = 0;
+        //while (game.winner < 0) {
+        //    localeStack.back().Get("currentPlayer").playerRef = turn % game.players.size();
+        //    cout << "turn " << turn++ << " player " << localeStack.back().Get("currentPlayer").playerRef << endl;
+        //    for (int i = 0; i < game.turn.children.size(); i++)
+        //    {
+        //        RunExpression(game.turn.children[i], game, ExpressionType::UNKNOWN, localeStack);
+        //    }
+        //}
 
-        cout << "the winner is player " << game.winner << std::endl;
+        //cout << "the winner is player " << game.winner << std::endl;
 
-        localeStack.pop_back();
+        //localeStack.pop_back();
 
-        Program program;
+        
         program.compile(expr);
 
     } catch (UnexpectedTokenException e) {

@@ -643,7 +643,7 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
 
             vector<Card> cardsTaken;
 
-            // the target Expression type determines we want to take cards from the source stack
+            // the target Expression type determines how we want to take cards from the source stack
             if (targetStackExpr.type == ExpressionType::STACK_SOURCE_TOP) {
                 // take cards from the top of the source deck
                 
@@ -666,7 +666,7 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
                 );
                 
                 auto start = source.cards.begin();
-                auto end = source.cards.begin() + (limit-1);
+                auto end = source.cards.begin() + (limit - 1);
 
                 cardsTaken = vector<Card>(start, end);
                 source.cards.erase(start, end);
