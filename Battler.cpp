@@ -126,9 +126,13 @@ int main(int argc, char* argv[]) {
 
         //localeStack.pop_back();
 
-        
-        program.compile(expr);
 
+        program.compile(expr);
+        program.run();
+
+    } catch (VMError e) {
+        std::cout << "VM Error" << e.reason << endl;
+        return 1;
     } catch (UnexpectedTokenException e) {
         std::cout << GetErrorString("unexpected token", e.reason, e.t, lines) << endl;
         return 1;

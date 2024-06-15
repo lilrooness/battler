@@ -1,6 +1,7 @@
 #include "../Compiler.h"
 
 #include "../expression.h"
+#include "../interpreter_errors.h"
 
 
 vector<Opcode> Program::opcodes()
@@ -49,7 +50,7 @@ void Program::compile_name(vector<Token> tokens, bool lvalue)
 				}
 
 				DATA_IX_T string_index = m_strings.size();
-				m_strings.push_back(tokens[0].text);
+				m_strings.push_back(token.text);
 				code.data |= STRING_TC;
 				code.data |= ((OPCODE_CONV_T)string_index << 32);
 				m_opcodes.push_back(code);
@@ -436,3 +437,346 @@ void Program::compile(Expression expr)
 		throw CompileError(ss.str(), expr.tokens[0]);
 	}
 }
+
+int Program::run()
+{
+	
+	while (m_game.winner == -1 || m_current_opcode_index >= m_opcodes.size())
+	{
+		Opcode code = m_opcodes[m_current_opcode_index];
+		if (run(code) == -1)
+		{
+			return -1;
+		}
+	}
+	return 0;
+}
+
+int Program::run(Opcode code)
+{
+	if (code.type == OpcodeType::GAME_BLK_HEADER)
+	{
+		if (!m_proc_mode_stack.empty())
+		{
+			cout << "Error: Cannot define game" << endl;
+			return -1;
+		}
+		m_proc_mode_stack.push_back(PROC_MODE::GAME);
+		m_locale_stack.push_back(AttrCont());
+		DATA_IX_T name_idx = (code.data & uint64_t(0xFFFF0000)) >> 32;
+		cout << m_strings[name_idx] << endl;
+		m_game.name = m_strings[name_idx];
+		m_current_opcode_index += 1;
+	}
+	else if (code.type == OpcodeType::BLK_END)
+	{
+		if (m_proc_mode_stack.empty())
+		{
+			cout << "'end' without a matching 'start'" << endl;
+			return -1;
+		}
+		m_proc_mode_stack.pop_back();
+		m_current_opcode_index  += 1;
+	}
+	else if (code.type == OpcodeType::ATTR_DECL)
+	{
+		int idx = m_current_opcode_index + 1;
+		vector<string> names;
+		while (m_opcodes[idx].type == OpcodeType::L_VALUE || m_opcodes[idx].type == OpcodeType::L_VALUE_DOT_SEPERATED_REF_CHAIN)
+		{
+			auto nameOpcode = m_opcodes[idx];
+			TYPE_CODE_T _string_typecode = nameOpcode.data & TYPE_CODE_T_MASK;
+			assert(_string_typecode == STRING_TC);
+			DATA_IX_T stringNameIdx = (nameOpcode.data & (OPCODE_CONV_T(0xFF) << 32)) >> 32;
+			names.push_back(m_strings[stringNameIdx]);
+			cout << m_strings[stringNameIdx];
+			idx++;
+		}
+		cout << endl;
+
+		m_current_opcode_index = idx;
+
+		if (m_opcodes[m_current_opcode_index].type == OpcodeType::DOT_SEPERATED_REF_CHAIN_END)
+		{
+			m_current_opcode_index++;
+		}
+
+		auto typeOpcode = m_opcodes[m_current_opcode_index];
+		assert(typeOpcode.type == OpcodeType::ATTR_DATA_TYPE);
+		TYPE_CODE_T typeCode = typeOpcode.data & TYPE_CODE_T_MASK;
+		m_current_opcode_index++;
+
+		// TODO: STORE VALUE IN 'm_localeStack'
+		Attr a;
+		auto attrType = s_type_code_to_attribute_type(typeCode);
+
+		if (attrType == AttributeType::UNDEFINED)
+		{
+			cout << "undefined attribute type " << typeCode << endl;
+			return -1;
+		}
+
+		a.type = attrType;
+
+		if (attrType == AttributeType::STACK_REF)
+		{
+			
+			Stack newStack;
+			a.stackRef = names.back();
+
+			if (typeCode == VISIBLE_STACK_TC)
+			{
+				newStack.t = StackType::VISIBLE;
+			}
+			else if (typeCode == HIDDEN_STACK_TC)
+			{
+				newStack.t = StackType::HIDDEN;
+			}
+			else if (typeCode == PRIVATE_STACK_TC)
+			{
+				newStack.t = StackType::PRIVATE;
+			}
+			m_game.stacks[names.back()] = newStack;
+		}
+
+		if (names.size() == 1)
+		{
+			m_locale_stack.back().Store(names[0], a);
+		}
+		else
+		{
+			AttrCont* cont = GetObjectAttrContPtrFromIdentifier(names.begin(), names.end() - 1);
+			cont->Store(names.back(), a);
+		}
+	}
+	else if (code.type == OpcodeType::PLAYERS_L_VALUE)
+	{
+		m_current_opcode_index++;
+		int n_players = resolve_number_expression(m_current_opcode_index);
+
+		for (int i = 0; i < n_players; i++) {
+			m_game.players.push_back(Player());
+		}
+	}
+	else
+	{
+		cout << "encounterd unknown opcode type " << int(code.type) << endl;
+		return -1;
+	}
+
+	return 0;
+}
+
+int Program::resolve_number_expression(int opcode_idx)
+{
+	// TODO: handle math expressions
+	if (m_opcodes[m_current_opcode_index].type == OpcodeType::R_VALUE)
+	{
+		auto int_value_opcode = m_opcodes[m_current_opcode_index];
+
+		TYPE_CODE_T type = (int_value_opcode.data & TYPE_CODE_T_MASK);
+
+		assert(type == INT_TC);
+
+		DATA_IX_T data_index = (int_value_opcode.data & (OPCODE_CONV_T(0xFF) << 32)) >> 32;
+		
+		m_current_opcode_index++;
+		return m_ints[data_index];	
+	}
+}
+
+Game Program::game()
+{
+	return m_game;
+}
+
+AttributeType Program::s_type_code_to_attribute_type(TYPE_CODE_T t)
+{
+	switch (t)
+	{
+	case STRING_TC:
+		return AttributeType::STRING;
+	case INT_TC:
+		return AttributeType::INT;
+	case BOOL_TC:
+		return AttributeType::BOOL;
+	case FLOAT_TC:
+		return AttributeType::FLOAT;
+	case VISIBLE_STACK_TC:
+		return AttributeType::STACK_REF;
+	case HIDDEN_STACK_TC:
+		return AttributeType::STACK_REF;
+	case PRIVATE_STACK_TC:
+		return AttributeType::STACK_REF;
+	case CARD_TC:
+		return AttributeType::CARD_REF;
+	default:
+		return AttributeType::UNDEFINED;
+	}
+}
+
+AttrCont* Program::GetGlobalObjectAttrContPtr(AttrCont& cont, string name) {
+	if (!cont.Contains(name)) {
+		throw VMError("this attribute does not exist ");
+	}
+
+	if (cont.Get(name).type == AttributeType::CARD_REF) {
+		return &m_game.cards[cont.Get(name).cardRef].attributes;
+	}
+
+	if (cont.Get(name).type == AttributeType::PLAYER_REF) {
+		return &m_game.players[cont.Get(name).playerRef].attributes;
+	}
+
+	if (cont.Get(name).type == AttributeType::PHASE_REF) {
+		return &m_game.phases[cont.Get(name).phaseRef].attributes;
+	}
+
+	if (cont.Get(name).type == AttributeType::STACK_REF) {
+		return &m_game.stacks[cont.Get(name).stackRef].attributes;
+	}
+
+	throw VMError("this type cannot have attributes ");
+}
+
+
+AttrCont* Program::GetObjectAttrContPtrFromIdentifier(vector<string>::iterator namesBegin, vector<string>::iterator namesEnd) {
+	assert(namesBegin!= namesEnd);
+
+	auto namesItr = namesBegin;
+
+	string firstName = *namesItr;
+
+	AttrCont* current;
+	bool found = false;
+
+	for (int i = m_locale_stack.size() - 1; !found && i >= 0; i--) {
+		if (m_locale_stack[i].Contains(firstName)) {
+			current = GetGlobalObjectAttrContPtr(m_locale_stack[i], *namesBegin);
+			found = true;
+		}
+	}
+
+	if (!found && m_game.attributeCont.Contains(firstName)) {
+		current = GetGlobalObjectAttrContPtr(m_game.attributeCont, *namesBegin);
+		found = true;
+	}
+
+	if (!found) {
+		throw VMError("Could not find attribute");
+	}
+
+	++namesItr;
+
+	while (namesItr != namesEnd) {
+		if (current->Contains(*namesItr)) {
+			current = GetGlobalObjectAttrContPtr(*current, *namesItr);
+		}
+		else {
+			throw VMError(*namesItr + " not found in " + firstName);
+		}
+
+		++namesItr;
+	}
+
+	return current;
+}
+
+
+/////// I THINK WE MIGHT NEED THIS . . . . not sure though
+
+//bool Program::store_attribute_with_dot_seperated_name(vector<string> names, Attr)
+//{
+//
+//	Attr attr;
+//	bool found = false;
+//
+//	auto nameItr = names.begin();
+//	string start_name = *nameItr;
+//	++nameItr;
+//
+//	for (auto& stack : m_locale_stack)
+//	{
+//		if (stack.Contains(start_name))
+//		{
+//			attr = stack.Get(start_name);
+//			found = true;
+//		}
+//	}
+//
+//	if (!found && m_game.attributeCont.Contains(start_name)) {
+//		attr = m_game.attributeCont.Get(start_name);
+//		found = true;
+//	}
+//
+//	if (!found && m_game.cards.find(start_name) != m_game.cards.end()) {
+//		
+//		attr.type = AttributeType::CARD_REF;
+//		attr.cardRef = start_name;
+//		found = true;
+//	}
+//
+//	if (!found)
+//	{
+//		cout << "could not find attr " << start_name << endl;
+//		return false;
+//	}
+//
+//	//if (locale == nullptr)
+//	//{
+//	//	return false;
+//	//}
+//
+//	while (nameItr != names.end()) {
+//		if (attr.type == AttributeType::CARD_REF) {
+//			if (m_game.cards[attr.cardRef].attributes.Contains(*nameItr)) {
+//				attr = m_game.cards[attr.cardRef].attributes.Get(*nameItr);
+//			}
+//			else {
+//				cout << "No attr found with this name on this card " << *nameItr << endl;
+//				return false;
+//			}
+//		}
+//		else if (attr.type == AttributeType::STACK_REF) {
+//			if (*nameItr == "top") {
+//				auto stack = m_game.stacks[attr.stackRef];
+//				auto stackRef = attr.stackRef;
+//				attr = Attr();
+//				attr.type = AttributeType::STACK_POSITION_REF;
+//				// the top of the stack is the index of the last card in the stack
+//				attr.stackPositionRef = { stackRef, stack.cards.size() - 1 };
+//			}
+//			else if (*nameItr == "bottom") {
+//				auto stackRef = attr.stackRef;
+//				attr = Attr();
+//				attr.type = AttributeType::STACK_POSITION_REF;
+//				// the bottom of the stack is always 0
+//				attr.stackPositionRef = { stackRef, 0 };
+//			}
+//			else if (m_game.stacks[attr.stackRef].attributes.Contains(*nameItr)) {
+//				attr = m_game.stacks[attr.stackRef].attributes.Get(*nameItr);
+//			}
+//			else {
+//				cout << "No attr found with this name on this stack " << *nameItr << endl;
+//				return false;
+//			}
+//		}
+//		else if (attr.type == AttributeType::PLAYER_REF) {
+//			if (m_game.players[attr.playerRef].attributes.Contains(*nameItr)) {
+//				attr = m_game.players[attr.playerRef].attributes.Get(*nameItr);
+//			}
+//			else {
+//				cout << "No attr found with this name on this player" << * nameItr << endl;
+//				return false;
+//			}
+//		}
+//		else {
+//			cout << "Not possible to select an attribute on this type" << *nameItr << endl;
+//		}
+//
+//
+//		++nameItr;
+//	}
+//
+//	return found;
+//}

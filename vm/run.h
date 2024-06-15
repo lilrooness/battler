@@ -15,8 +15,6 @@
 #include "game.h"
 #include "../expression.h"
 
-
-
 using std::string;
 using std::cout;
 using std::endl;

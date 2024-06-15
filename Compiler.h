@@ -64,9 +64,21 @@ enum class OpcodeType
 	NO_OP,
 };
 
+enum class PROC_MODE
+{
+	GAME,
+	CARD,
+	PHASE,
+	SETUP,
+	TURN,
+	FOREACH,
+};
+
 #define TYPE_CODE_T uint16_t
 #define DATA_IX_T uint32_t
 #define OPCODE_CONV_T uint64_t
+
+#define TYPE_CODE_T_MASK uint16_t(0xFF)
 
 // data type codes
 const TYPE_CODE_T STRING_TC        = 0x01;
@@ -77,38 +89,60 @@ const TYPE_CODE_T VISIBLE_STACK_TC = 0x05;
 const TYPE_CODE_T HIDDEN_STACK_TC  = 0x06;
 const TYPE_CODE_T PRIVATE_STACK_TC = 0x07;
 const TYPE_CODE_T CARD_TC          = 0x08;
+const TYPE_CODE_T STACK_REF        = 0x09;
 
 class Opcode
 {
 public:
+	Opcode() : data(0), blk_size(0) {};
 	OpcodeType type;
 	int blk_size;
-	bitset<64> data;
+	uint64_t data;
 };
 
 class Program
 {
 private:
-	//code
+	//compiled data
 	vector<Opcode> m_opcodes;
 
-	//data
 	vector<string> m_strings;
 	vector<int> m_ints;
 	vector<bool> m_bools;
 
 	int m_setup_index;
 	int m_turn_index;
-
 	unordered_map<string, int> m_phase_indexes;
 
-	// while compiling
-	//unordered_map<string, tuple<TYPE_CODE_T, DATA_IX_T> > m_addresses;
-public:
-	void compile(Expression);
+	//runtime data
+	Game m_game;
+	int m_current_opcode_index;
+	vector<AttrCont> m_locale_stack;
+	vector<PROC_MODE> m_proc_mode_stack;
+
 	void factor_expression(Expression);
 	void compile_name(vector<Token>, bool lvalue);
+
+	int run(Opcode code);
+
+	//bool store_attribute_with_dot_seperated_name(vector<string>, Attr);
+
+	static AttributeType s_type_code_to_attribute_type(TYPE_CODE_T);
+
+	//copied from run.h
+	AttrCont* GetObjectAttrContPtrFromIdentifier(vector<string>::iterator namesBegin, vector<string>::iterator namesEnd);
+	AttrCont* GetGlobalObjectAttrContPtr(AttrCont& cont, string name);
+	int resolve_number_expression(int opcode_idx);
+
+public:
+	Program(): m_current_opcode_index(0) {};
+	
+	void compile(Expression);
+	int run();
+	
 	vector<Opcode> opcodes();
+	Game game();
+	
 };
 
 class CompileError {
@@ -116,6 +150,12 @@ public:
 	Token t;
 	string reason;
 	CompileError(string reason, Token t) : reason{ reason }, t{ t } {}
+};
+
+class VMError {
+public:
+	string reason;
+	VMError(string reason) : reason{ reason } {}
 };
 
 #endif // !COMPILER_H
