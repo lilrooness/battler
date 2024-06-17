@@ -119,6 +119,7 @@ private:
 	int m_current_opcode_index;
 	vector<AttrCont> m_locale_stack;
 	vector<PROC_MODE> m_proc_mode_stack;
+	vector<string> m_block_name_stack;
 
 	void factor_expression(Expression);
 	void compile_name(vector<Token>, bool lvalue);
@@ -132,7 +133,15 @@ private:
 	//copied from run.h
 	AttrCont* GetObjectAttrContPtrFromIdentifier(vector<string>::iterator namesBegin, vector<string>::iterator namesEnd);
 	AttrCont* GetGlobalObjectAttrContPtr(AttrCont& cont, string name);
-	int resolve_number_expression(int opcode_idx);
+	int resolve_number_expression();
+	bool resolve_bool_expression();
+	string resolve_string_expression();
+	float resolve_float_expression();
+	
+	void read_name(vector<string>& names, OpcodeType nameType);
+	Attr* get_attr_ptr(vector<string> names);
+	string get_card_parent_name(string nameSequence);
+	string get_card_name(string nameSequence);
 
 public:
 	Program(): m_current_opcode_index(0) {};

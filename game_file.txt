@@ -27,7 +27,7 @@ game TestGame start
     int Draw.h.a
     int Draw.h.b
     
-    players 2# * 5 + 6
+    players 2*1# * 5 + 6
 
     Draw.h.b = 6
 

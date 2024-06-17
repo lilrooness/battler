@@ -356,6 +356,14 @@ void Program::compile(Expression expr)
 	{
 		auto nameTokens = expr.children.back().tokens;
 		string name = nameTokens[0].text;
+
+		if (nameTokens.size() == 2)
+		{
+			std::stringstream ss;
+			ss << name << ":" << nameTokens[1].text;
+			name = ss.str();
+		}
+
 		DATA_IX_T name_index = m_strings.size();
 		m_strings.push_back(name);
 
@@ -466,6 +474,7 @@ int Program::run(Opcode code)
 		DATA_IX_T name_idx = (code.data & uint64_t(0xFFFF0000)) >> 32;
 		cout << m_strings[name_idx] << endl;
 		m_game.name = m_strings[name_idx];
+		m_block_name_stack.push_back(m_strings[name_idx]);
 		m_current_opcode_index += 1;
 	}
 	else if (code.type == OpcodeType::BLK_END)
@@ -475,31 +484,56 @@ int Program::run(Opcode code)
 			cout << "'end' without a matching 'start'" << endl;
 			return -1;
 		}
+
+		if (m_proc_mode_stack.back() == PROC_MODE::CARD)
+		{
+			Card card;
+			card.attributes = m_locale_stack.back();
+			card.ID = m_game.cards.size();
+			// name sequence is NAME:PARENT_NAME or just NAME
+			string nameSequence = m_block_name_stack.back();
+
+			card.name = get_card_name(nameSequence);
+			card.parentName = get_card_parent_name(nameSequence);
+
+			m_game.cards[card.name] = card;
+		}
+
+		m_locale_stack.pop_back();
 		m_proc_mode_stack.pop_back();
+		m_block_name_stack.pop_back();
 		m_current_opcode_index  += 1;
+		
+	}
+	else if (code.type == OpcodeType::CARD_BLK_HEADER)
+	{
+		DATA_IX_T name_idx = (code.data & (OPCODE_CONV_T(0xFF) << 32)) >> 32;
+		cout << m_strings[name_idx] << endl;
+
+		
+		m_proc_mode_stack.push_back(PROC_MODE::CARD);
+		m_block_name_stack.push_back(m_strings[name_idx]);
+
+		string parentName = get_card_parent_name(m_strings[name_idx]);
+
+		if (parentName.size() > 0 && m_game.cards.find(parentName) != m_game.cards.end())
+		{
+			cout << "parent name is " << parentName << endl;
+			AttrCont attrs = m_game.cards.find(parentName)->second.attributes;
+			m_locale_stack.push_back(attrs);
+		}
+		else
+		{
+			m_locale_stack.push_back(AttrCont());
+		}
+
+		m_current_opcode_index++;
 	}
 	else if (code.type == OpcodeType::ATTR_DECL)
 	{
-		int idx = m_current_opcode_index + 1;
+		m_current_opcode_index++;
 		vector<string> names;
-		while (m_opcodes[idx].type == OpcodeType::L_VALUE || m_opcodes[idx].type == OpcodeType::L_VALUE_DOT_SEPERATED_REF_CHAIN)
-		{
-			auto nameOpcode = m_opcodes[idx];
-			TYPE_CODE_T _string_typecode = nameOpcode.data & TYPE_CODE_T_MASK;
-			assert(_string_typecode == STRING_TC);
-			DATA_IX_T stringNameIdx = (nameOpcode.data & (OPCODE_CONV_T(0xFF) << 32)) >> 32;
-			names.push_back(m_strings[stringNameIdx]);
-			cout << m_strings[stringNameIdx];
-			idx++;
-		}
-		cout << endl;
-
-		m_current_opcode_index = idx;
-
-		if (m_opcodes[m_current_opcode_index].type == OpcodeType::DOT_SEPERATED_REF_CHAIN_END)
-		{
-			m_current_opcode_index++;
-		}
+		read_name(names, m_opcodes[m_current_opcode_index].type);
 
 		auto typeOpcode = m_opcodes[m_current_opcode_index];
 		assert(typeOpcode.type == OpcodeType::ATTR_DATA_TYPE);
@@ -552,10 +586,46 @@ int Program::run(Opcode code)
 	else if (code.type == OpcodeType::PLAYERS_L_VALUE)
 	{
 		m_current_opcode_index++;
-		int n_players = resolve_number_expression(m_current_opcode_index);
+		int n_players = resolve_number_expression();
 
 		for (int i = 0; i < n_players; i++) {
 			m_game.players.push_back(Player());
+		}
+	}
+	else if (code.type == OpcodeType::L_VALUE_DOT_SEPERATED_REF_CHAIN || code.type == OpcodeType::L_VALUE)
+	{
+		vector<string> names;
+		read_name(names, code.type);
+
+		Attr* attrPtr = get_attr_ptr(names);
+
+		if (code.type == OpcodeType::R_VALUE)
+		{
+			throw ("Cannot assign from an rvalue reference yet");
+		}
+		else if (attrPtr->type == AttributeType::INT)
+		{
+			int value = resolve_number_expression();
+			attrPtr->i = value;
+		}
+		else if (attrPtr->type == AttributeType::BOOL)
+		{
+			bool value = resolve_bool_expression();
+			attrPtr->b = value;
+		}
+		else if (attrPtr->type == AttributeType::STRING)
+		{
+			string value = resolve_string_expression();
+			attrPtr->s = value;
+		}
+		else if (attrPtr->type == AttributeType::FLOAT)
+		{
+			float value = resolve_float_expression();
+			attrPtr->f = value;
+		}
+		else
+		{
+			throw VMError("Unsupported lvalue type, not sure how we got here.");
 		}
 	}
 	else
@@ -567,7 +637,29 @@ int Program::run(Opcode code)
 	return 0;
 }
 
-int Program::resolve_number_expression(int opcode_idx)
+void Program::read_name(vector<string>& names, OpcodeType nameType)
+{
+	int idx = m_current_opcode_index;
+	while (m_opcodes[idx].type == nameType)
+	{
+		auto nameOpcode = m_opcodes[idx];
+		TYPE_CODE_T _string_typecode = nameOpcode.data & TYPE_CODE_T_MASK;
+		assert(_string_typecode == STRING_TC);
+		DATA_IX_T stringNameIdx = (nameOpcode.data & (OPCODE_CONV_T(0xFF) << 32)) >> 32;
+		names.push_back(m_strings[stringNameIdx]);
+		cout << m_strings[stringNameIdx];
+		idx++;
+	}
+	cout << endl;
+
+	if (m_opcodes[idx].type == OpcodeType::DOT_SEPERATED_REF_CHAIN_END)
+	{
+		idx++;
+	}
+	m_current_opcode_index = idx;
+}
+
+int Program::resolve_number_expression()
 {
 	// TODO: handle math expressions
 	if (m_opcodes[m_current_opcode_index].type == OpcodeType::R_VALUE)
@@ -583,6 +675,60 @@ int Program::resolve_number_expression(int opcode_idx)
 		m_current_opcode_index++;
 		return m_ints[data_index];	
 	}
+	else if (m_opcodes[m_current_opcode_index].type == OpcodeType::MULTIPLY)
+	{
+		m_current_opcode_index++;
+		int left = resolve_number_expression();
+		int right = resolve_number_expression();
+
+		return left * right;
+	}
+	else if (m_opcodes[m_current_opcode_index].type == OpcodeType::ADD)
+	{
+		m_current_opcode_index++;
+		int left = resolve_number_expression();
+		int right = resolve_number_expression();
+
+		return left + right;
+	}
+	else if (m_opcodes[m_current_opcode_index].type == OpcodeType::SUBTRACT)
+	{
+		m_current_opcode_index++;
+		int left = resolve_number_expression();
+		int right = resolve_number_expression();
+
+		return left - right;
+	}
+	else if (m_opcodes[m_current_opcode_index].type == OpcodeType::DIVIDE)
+	{
+		m_current_opcode_index++;
+		int left = resolve_number_expression();
+		int right = resolve_number_expression();
+
+		return left / right;
+	}
+	else
+	{
+
+		throw VMError("Unable to resolve direct rvalue in any way other than a number entry, like '5'");
+	}
+
+	return 0;
+}
+
+bool Program::resolve_bool_expression()
+{
+	throw VMError("Cannot yet resolve boolean expressions");
+}
+
+string Program::resolve_string_expression()
+{
+	throw VMError("Cannot yet resolve string expressions");
+}
+
+float Program::resolve_float_expression()
+{
+	throw VMError("Cannot yet resolve float expressions");
 }
 
 Game Program::game()
@@ -683,13 +829,162 @@ AttrCont* Program::GetObjectAttrContPtrFromIdentifier(vector<string>::iterator n
 }
 
 
+Attr* Program::get_attr_ptr(vector<string> names)
+{
+
+	assert(names.size() > 0);
+
+	bool shallowName = names.size() == 1;
+
+	Attr currentAttr;
+	bool found = false;
+
+	auto nameItr = names.begin();
+
+
+	if (shallowName && m_game.cards.find(*nameItr) != m_game.cards.end())
+	{
+		throw VMError("Cannot create an lvalue reference to a card type");
+	}
+
+	if (shallowName && m_game.stacks.find(*nameItr) != m_game.stacks.end())
+	{
+		throw VMError("Cannot create an lvalue reference to a stack");
+	}
+
+	for (auto& locale : m_locale_stack)
+	{
+		if (locale.Contains(*nameItr))
+		{
+			if (shallowName)
+			{
+				return &locale.Get(*nameItr);
+			}
+			
+			found = true;
+			currentAttr = locale.Get(*nameItr);
+		}
+	}
+
+	if (shallowName && !found)
+	{
+		throw VMError("variable does not exist");
+	}
+
+	if (!found && m_game.cards.find(*nameItr) != m_game.cards.end())
+	{
+		found = true;
+		currentAttr.type == AttributeType::CARD_REF;
+		currentAttr.cardRef = *nameItr;
+	}
+
+	if (!found && m_game.stacks.find(*nameItr) != m_game.stacks.end())
+	{
+		found = true;
+		currentAttr.type == AttributeType::STACK_REF;
+		currentAttr.stackRef = *nameItr;
+	}
+
+	if (!found)
+	{
+		throw VMError("variable does not exist");
+	}
+
+	nameItr++;
+
+	while (nameItr != names.end())
+	{
+		if (currentAttr.type == AttributeType::CARD_REF)
+		{
+			if (m_game.cards[currentAttr.cardRef].attributes.Contains(*nameItr))
+			{
+				if (nameItr == names.end()-1)
+				{
+					return &m_game.cards[currentAttr.cardRef].attributes.Get(*nameItr);
+				}
+
+				currentAttr = m_game.cards[currentAttr.cardRef].attributes.Get(*nameItr);
+			}
+			else
+			{
+				throw VMError("This card does not contain attribute");
+			}
+		}
+		else if (currentAttr.type == AttributeType::STACK_REF)
+		{
+
+			if (*nameItr == "top" || *nameItr == "bottom")
+			{
+				throw VMError("Cannot create lvalue reference from stack position pointer");
+			}
+
+			if (m_game.stacks[currentAttr.stackRef].attributes.Contains(*nameItr))
+			{
+				if (nameItr == names.end() - 1)
+				{
+					return &m_game.stacks[currentAttr.stackRef].attributes.Get(*nameItr);
+				}
+
+				currentAttr = m_game.stacks[currentAttr.stackRef].attributes.Get(*nameItr);
+			}
+			else
+			{
+				cout << "This stack does not contain attribute " << *nameItr << endl;
+				throw VMError("This stack does not contain attribute");
+			}
+		}
+		else if (currentAttr.type == AttributeType::PLAYER_REF)
+		{
+			if (m_game.players[currentAttr.playerRef].attributes.Contains(*nameItr))
+			{
+				if (nameItr == names.end() - 1)
+				{
+					return &m_game.players[currentAttr.playerRef].attributes.Get(*nameItr);
+				}
+
+				currentAttr = m_game.players[currentAttr.playerRef].attributes.Get(*nameItr);
+			}
+			else
+			{
+				throw VMError("This player does not contain attribute");
+			}
+		}
+
+		nameItr++;
+	}
+}
+
+string Program::get_card_parent_name(string nameSequence)
+{
+
+	auto delimPos = nameSequence.find(":");
+
+	if (delimPos != string::npos)
+	{
+		return nameSequence.substr(delimPos + 1);
+	}
+	
+	return "";
+}
+
+string Program::get_card_name(string nameSequence)
+{
+	auto delimPos = nameSequence.find(":");
+
+	if (delimPos != string::npos)
+	{
+		return nameSequence.substr(0, delimPos-1);
+	}
+
+	return nameSequence;
+}
+
 /////// I THINK WE MIGHT NEED THIS . . . . not sure though
 
-//bool Program::store_attribute_with_dot_seperated_name(vector<string> names, Attr)
+//Attr* Program::get_attr_ptr(vector<string> names)
 //{
-//
-//	Attr attr;
 //	bool found = false;
+//	Attr attr;
 //
 //	auto nameItr = names.begin();
 //	string start_name = *nameItr;
