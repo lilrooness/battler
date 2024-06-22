@@ -138,7 +138,7 @@ class Phase {
         int ID;
         std::string name;
         AttrCont attributes;
-        Expression expression;
+        Expression expression; // old tree walk mode
 };
 
 class Game {
@@ -152,8 +152,8 @@ class Game {
         std::unordered_map<std::string, Stack> stacks;
         std::unordered_map<std::string, int> playerBindings;
         std::vector<Player> players;
-        Expression setup;
-        Expression turn;
+        Expression setup; // old tree walk mode
+        Expression turn; // old tree walk mode
         int currentPlayerIndex;
         int winner;
 

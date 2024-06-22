@@ -165,7 +165,7 @@ void Program::compile(Expression expr)
 		end.type = OpcodeType::BLK_END;
 		
 		m_opcodes.push_back(start);
-		m_setup_index = m_opcodes.size();
+		m_setup_index = m_opcodes.size()-1;
 		for (auto e : expr.children)
 		{
 			compile(e);
@@ -506,6 +506,13 @@ int Program::run(Opcode code)
 		m_block_name_stack.pop_back();
 		m_current_opcode_index  += 1;
 		
+	}
+	else if (code.type == OpcodeType::SETUP_BLK_HEADER)
+	{
+		m_proc_mode_stack.push_back(PROC_MODE::CARD);
+		m_block_name_stack.push_back("__SETUP");
+		m_locale_stack.push_back(AttrCont());
+		m_current_opcode_index ++;
 	}
 	else if (code.type == OpcodeType::CARD_BLK_HEADER)
 	{
