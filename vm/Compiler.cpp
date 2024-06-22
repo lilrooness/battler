@@ -302,6 +302,7 @@ void Program::compile(Expression expr)
 			compile_name(sourceStackExpr.tokens, NAME_IS_LVALUE);
 			m_opcodes.push_back(destinationOpcode);
 			compile_name(targetStackExpr.children[0].tokens, NAME_IS_RVALUE);
+			factor_expression(targetStackExpr.children[1]);
 		}
 		else if (sourceStackExpr.type == ExpressionType::STACK_MOVE_SOURCE)
 		{
@@ -334,6 +335,7 @@ void Program::compile(Expression expr)
 			compile_name(sourceStackExpr.tokens, NAME_IS_LVALUE);
 			m_opcodes.push_back(destOpcode);
 			compile_name(targetStackExpr.children[0].tokens, NAME_IS_RVALUE);
+			factor_expression(targetStackExpr.children[1]);
 		}
 	}
 	else if (expr.type == ExpressionType::ATTR_ASSIGNMENT)
@@ -528,6 +530,103 @@ int Program::run(Opcode code)
 		}
 
 		m_current_opcode_index++;
+	}
+	else if (code.type == OpcodeType::STACK_SOURCE_RANDOM_CARD_TYPE)
+	{
+		m_current_opcode_index++;
+		vector<string> card_type;
+		read_name(card_type, m_opcodes[m_current_opcode_index].type);
+
+		assert(card_type.size() == 1);
+
+		auto destination_opcode_type = m_opcodes[m_current_opcode_index].type;
+		m_current_opcode_index++;
+		
+		vector<string> destination_stack_identifier;
+		read_name(destination_stack_identifier, m_opcodes[m_current_opcode_index].type);
+		int move_amount = resolve_number_expression();
+
+		Stack* dst = get_stack_ptr(destination_stack_identifier);
+		auto matching_cards = m_game.get_cards_of_type(card_type[0]);
+		
+		vector<Card> cardsTaken;
+		for (int i = 0; i < move_amount; i++)
+		{
+			cardsTaken.push_back(matching_cards[rand() % matching_cards.size()]);
+		}
+
+		if (destination_opcode_type == OpcodeType::STACK_DEST_TOP)
+		{
+			std::reverse(cardsTaken.begin(), cardsTaken.end());
+			dst->cards.insert(dst->cards.end(), cardsTaken.begin(), cardsTaken.end());
+		}
+		else if (destination_opcode_type == OpcodeType::STACK_DEST_BOTTOM)
+		{
+			dst->cards.insert(dst->cards.begin(), cardsTaken.begin(), cardsTaken.end());
+		}
+	}
+	else if (code.type == OpcodeType::STACK_SOURCE_TOP || code.type == OpcodeType::STACK_SOURCE_BOTTOM)
+	{
+		m_current_opcode_index++;
+		vector<string> source_name;
+		read_name(source_name, m_opcodes[m_current_opcode_index].type);
+
+		auto destination_opcode_type = m_opcodes[m_current_opcode_index].type;
+		m_current_opcode_index++;
+
+		vector<string> dest_name;
+		read_name(dest_name, m_opcodes[m_current_opcode_index].type);
+		int move_amount = resolve_number_expression();
+
+		Stack* source = get_stack_ptr(source_name);
+		Stack* dst = get_stack_ptr(dest_name);
+
+		vector<Card> cardsTaken;
+
+		if (code.type == OpcodeType::STACK_SOURCE_BOTTOM)
+		{
+			int limit = std::min(
+				static_cast<int>(source->cards.size()),
+				move_amount
+			);
+
+			auto start = source->cards.end() - limit;
+			auto end = source->cards.end();
+
+			cardsTaken = vector<Card>(start, end);
+			source->cards.erase(start, end);
+
+			/**
+			 * the code that takes the cards and puts them in the new stack
+			 * assumes that the 'backmost' card is the one you
+			 * would take first, whether from the bottom, or the top,
+			 * so cardsTaken must be reversed in this case
+			*/
+			std::reverse(cardsTaken.begin(), cardsTaken.end());
+		}
+		else if (code.type == OpcodeType::STACK_SOURCE_TOP)
+		{
+			int limit = std::min(
+				static_cast<int>(source->cards.size()),
+				move_amount
+			);
+
+			auto start = source->cards.end() - limit;
+			auto end = source->cards.end();
+
+			cardsTaken = vector<Card>(start, end);
+			source->cards.erase(start, end);
+		}
+
+		if (destination_opcode_type == OpcodeType::STACK_DEST_TOP)
+		{
+			std::reverse(cardsTaken.begin(), cardsTaken.end());
+			dst->cards.insert(dst->cards.end(), cardsTaken.begin(), cardsTaken.end());
+		}
+		else if (destination_opcode_type == OpcodeType::STACK_DEST_BOTTOM)
+		{
+			dst->cards.insert(dst->cards.begin(), cardsTaken.begin(), cardsTaken.end());
+		}
 	}
 	else if (code.type == OpcodeType::ATTR_DECL)
 	{
@@ -828,8 +927,7 @@ AttrCont* Program::GetObjectAttrContPtrFromIdentifier(vector<string>::iterator n
 	return current;
 }
 
-
-Attr* Program::get_attr_ptr(vector<string> names)
+Attr* Program::get_attr_ptr(vector<string>& names)
 {
 
 	assert(names.size() > 0);
@@ -973,10 +1071,42 @@ string Program::get_card_name(string nameSequence)
 
 	if (delimPos != string::npos)
 	{
-		return nameSequence.substr(0, delimPos-1);
+		return nameSequence.substr(0, delimPos);
 	}
 
 	return nameSequence;
+}
+
+Stack* Program::get_stack_ptr(vector<string>& stack_identifier)
+{
+	assert(stack_identifier.size() != 0);
+
+	Stack* src = nullptr;
+
+	if (stack_identifier.size() == 1)
+	{
+		auto shallow_name = stack_identifier[0];
+		if (m_game.stacks.find(shallow_name) == m_game.stacks.end())
+		{
+			throw VMError("could not find stack with name: " + shallow_name);
+		}
+		src = &m_game.stacks[shallow_name];
+	}
+	else
+	{
+		Attr* stackAttr = get_attr_ptr(stack_identifier);
+		assert(stackAttr->type == AttributeType::STACK_REF);
+		auto shallow_name = stackAttr->stackRef;
+		if (m_game.stacks.find(shallow_name) == m_game.stacks.end())
+		{
+			throw VMError("could not find stack with name: " + shallow_name);
+		}
+		src = &m_game.stacks[shallow_name];
+	}
+
+	assert(src != nullptr);
+
+	return src;
 }
 
 /////// I THINK WE MIGHT NEED THIS . . . . not sure though

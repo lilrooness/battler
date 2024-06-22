@@ -8,6 +8,7 @@ add_executable(Battler
 	vm/Compiler.cpp
 	Parser.cpp
 	InterpreterErrors.cpp
+	vm/game.cpp
 	Battler.h
 	expression.h
 	interpreter_errors.h
@@ -16,3 +17,4 @@ add_executable(Battler
 	vm/game.h
 	vm/run.h
 )
+

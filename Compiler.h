@@ -139,9 +139,10 @@ private:
 	float resolve_float_expression();
 	
 	void read_name(vector<string>& names, OpcodeType nameType);
-	Attr* get_attr_ptr(vector<string> names);
+	Attr* get_attr_ptr(vector<string>& names);
 	string get_card_parent_name(string nameSequence);
 	string get_card_name(string nameSequence);
+	Stack* get_stack_ptr(vector<string>& names);
 
 public:
 	Program(): m_current_opcode_index(0) {};

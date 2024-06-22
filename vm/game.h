@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "../expression.h"
 
@@ -17,6 +18,8 @@ enum class Scope {LOCAL, GAME};
 
 using std::cout;
 using std::endl;
+using std::vector;
+using std::string;
 
 class OperationError {
     public:
@@ -177,6 +180,8 @@ class Game {
 
             cout << attributeCont.ToString("    ") << endl;
         }
+
+        vector<Card> get_cards_of_type(string type);
 };
 
 #endif // !GAME_H
