@@ -113,6 +113,7 @@ private:
 
 	int m_setup_index;
 	int m_turn_index;
+	int m_depth;
 	unordered_map<string, int> m_phase_indexes;
 
 	//runtime data
@@ -125,7 +126,7 @@ private:
 	void factor_expression(Expression);
 	void compile_name(vector<Token>, bool lvalue);
 
-	int run(Opcode code);
+	int run(Opcode code, bool load=false);
 
 	//bool store_attribute_with_dot_seperated_name(vector<string>, Attr);
 
@@ -144,12 +145,15 @@ private:
 	string get_card_parent_name(string nameSequence);
 	string get_card_name(string nameSequence);
 	Stack* get_stack_ptr(vector<string>& names);
+	void ignore_block();
 
 public:
-	Program(): m_current_opcode_index(0) {};
+	Program(): m_depth(0), m_current_opcode_index(0) {};
 	
 	void compile(Expression);
-	int run();
+	int run(bool load=false);
+	int run_setup();
+	int run_turn();
 	
 	vector<Opcode> opcodes();
 	Game game();

@@ -448,13 +448,13 @@ void Program::compile(Expression expr)
 	}
 }
 
-int Program::run()
+int Program::run(bool load)
 {
 	
-	while (m_game.winner == -1 || m_current_opcode_index >= m_opcodes.size())
+	while (m_game.winner == -1 && m_current_opcode_index < m_opcodes.size())
 	{
 		Opcode code = m_opcodes[m_current_opcode_index];
-		if (run(code) == -1)
+		if (run(code, load) == -1)
 		{
 			return -1;
 		}
@@ -462,10 +462,59 @@ int Program::run()
 	return 0;
 }
 
-int Program::run(Opcode code)
+int Program::run_setup()
+{
+	bool done = false;
+	int depth_store = m_depth;
+
+	m_current_opcode_index = m_setup_index;
+
+	while (!done)
+	{
+		Opcode code = m_opcodes[m_current_opcode_index];
+		
+		if (run(code, false) == -1)
+		{
+			return -1;
+		}
+
+		if (code.type == OpcodeType::BLK_END && m_depth == depth_store)
+		{
+			done = true;
+		}
+	}
+	return 0;
+}
+
+int Program::run_turn()
+{
+	bool done = false;
+	int depth_store = m_depth;
+
+	m_current_opcode_index = m_turn_index;
+
+	while (!done)
+	{
+		Opcode code = m_opcodes[m_current_opcode_index];
+
+		if (run(code, false) == -1)
+		{
+			return -1;
+		}
+
+		if (code.type == OpcodeType::BLK_END && m_depth == depth_store)
+		{
+			done = true;
+		}
+	}
+	return 0;
+}
+
+int Program::run(Opcode code, bool load)
 {
 	if (code.type == OpcodeType::GAME_BLK_HEADER)
 	{
+		m_depth++;
 		if (!m_proc_mode_stack.empty())
 		{
 			cout << "Error: Cannot define game" << endl;
@@ -474,18 +523,20 @@ int Program::run(Opcode code)
 		m_proc_mode_stack.push_back(PROC_MODE::GAME);
 		m_locale_stack.push_back(AttrCont());
 		DATA_IX_T name_idx = (code.data & uint64_t(0xFFFF0000)) >> 32;
-		cout << m_strings[name_idx] << endl;
 		m_game.name = m_strings[name_idx];
 		m_block_name_stack.push_back(m_strings[name_idx]);
 		m_current_opcode_index += 1;
 	}
 	else if (code.type == OpcodeType::BLK_END)
 	{
+		
 		if (m_proc_mode_stack.empty())
 		{
 			cout << "'end' without a matching 'start'" << endl;
 			return -1;
 		}
+
+		m_depth--;
 
 		if (m_proc_mode_stack.back() == PROC_MODE::CARD)
 		{
@@ -509,6 +560,7 @@ int Program::run(Opcode code)
 	}
 	else if (code.type == OpcodeType::FOREACHPLAYER_BLK_HEADER)
 	{
+		m_depth++;
 		AttrCont cont;
 		Attr counter;
 		counter.playerRef = 0;
@@ -532,10 +584,11 @@ int Program::run(Opcode code)
 
 		if (playerRef.playerRef == m_game.players.size() - 1)
 		{
+			m_depth--;
 			m_locale_stack.pop_back();
 			m_proc_mode_stack.pop_back();
 			m_block_name_stack.pop_back();
-			m_current_opcode_index ++;
+			m_current_opcode_index++;
 		}
 		else
 		{
@@ -552,15 +605,56 @@ int Program::run(Opcode code)
 	}
 	else if (code.type == OpcodeType::SETUP_BLK_HEADER)
 	{
-		m_proc_mode_stack.push_back(PROC_MODE::CARD);
+		m_depth++;
+		m_proc_mode_stack.push_back(PROC_MODE::SETUP);
 		m_block_name_stack.push_back("__SETUP");
 		m_locale_stack.push_back(AttrCont());
-		m_current_opcode_index ++;
+
+		if (load)
+		{
+			ignore_block();
+		}
+		else
+		{
+			m_current_opcode_index++;
+		}
+	}
+	else if (code.type == OpcodeType::PHASE_BLK_HEADER)
+	{
+		m_depth++;
+		m_proc_mode_stack.push_back(PROC_MODE::PHASE);
+		m_block_name_stack.push_back("__PHASE");
+		m_locale_stack.push_back(AttrCont());
+
+		if (load)
+		{
+			ignore_block();
+		}
+		else
+		{
+			m_current_opcode_index++;
+		}
+	}
+	else if (code.type == OpcodeType::TURN_BLK_HEADER)
+	{
+		m_depth++;
+		m_proc_mode_stack.push_back(PROC_MODE::TURN);
+		m_block_name_stack.push_back("__TURN");
+		m_locale_stack.push_back(AttrCont());
+
+		if (load)
+		{
+			ignore_block();
+		}
+		else
+		{
+			m_current_opcode_index++;
+		}
 	}
 	else if (code.type == OpcodeType::CARD_BLK_HEADER)
 	{
+		m_depth++;
 		DATA_IX_T name_idx = (code.data & (OPCODE_CONV_T(0xFF) << 32)) >> 32;
-		cout << m_strings[name_idx] << endl;
 
 		
 		m_proc_mode_stack.push_back(PROC_MODE::CARD);
@@ -570,7 +664,6 @@ int Program::run(Opcode code)
 
 		if (parentName.size() > 0 && m_game.cards.find(parentName) != m_game.cards.end())
 		{
-			cout << "parent name is " << parentName << endl;
 			AttrCont attrs = m_game.cards.find(parentName)->second.attributes;
 			m_locale_stack.push_back(attrs);
 		}
@@ -787,6 +880,43 @@ int Program::run(Opcode code)
 	return 0;
 }
 
+void Program::ignore_block()
+{
+	int depth = 1;
+
+	while (depth > 0)
+	{
+		m_current_opcode_index++;
+		auto type = m_opcodes[m_current_opcode_index].type;
+		if (type == OpcodeType::CARD_BLK_HEADER)
+			depth++;
+		
+		if (type == OpcodeType::FOREACHPLAYER_BLK_HEADER)
+			depth++;
+
+		if (type == OpcodeType::GAME_BLK_HEADER)
+			depth++;
+
+		if (type == OpcodeType::IF_BLK_HEADER)
+			depth++;
+
+		if (type == OpcodeType::PHASE_BLK_HEADER)
+			depth++;
+
+		if (type == OpcodeType::SETUP_BLK_HEADER)
+			depth++;
+
+		if (type == OpcodeType::TURN_BLK_HEADER)
+			depth++;
+
+		if (type == OpcodeType::BLK_END)
+			depth--;
+
+		if (type == OpcodeType::FOREACHPLAYER_BLK_END)
+			depth--;
+	}
+}
+
 void Program::read_name(vector<string>& names, OpcodeType nameType)
 {
 	int idx = m_current_opcode_index;
@@ -797,10 +927,8 @@ void Program::read_name(vector<string>& names, OpcodeType nameType)
 		assert(_string_typecode == STRING_TC);
 		DATA_IX_T stringNameIdx = (nameOpcode.data & (OPCODE_CONV_T(0xFF) << 32)) >> 32;
 		names.push_back(m_strings[stringNameIdx]);
-		cout << m_strings[stringNameIdx];
 		idx++;
 	}
-	cout << endl;
 
 	if (m_opcodes[idx].type == OpcodeType::DOT_SEPERATED_REF_CHAIN_END)
 	{

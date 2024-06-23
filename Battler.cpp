@@ -127,8 +127,18 @@ int main(int argc, char* argv[]) {
         //localeStack.pop_back();
 
 
+        std::cout << "Compiling game file" << std::endl;
         program.compile(expr);
-        program.run();
+
+        std::cout << "Loading Compiled Game" << std::endl;
+        program.run(true);
+
+        std::cout << "Running game setup" << std::endl;
+        program.run_setup();
+
+        std::cout << "Running ONE turn" << std::endl;
+        program.run_turn();
+
 
     } catch (VMError e) {
         std::cout << "VM Error" << e.reason << endl;

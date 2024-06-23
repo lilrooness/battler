@@ -66,7 +66,7 @@ game TestGame start
     Draw -> InPlay top 2
 
 
-    # a setup block, run once at the start of the game
+    # a setup block, run once at the beggining of the game
     setup start
         foreachplayer p start
             privatestack p.Hand
