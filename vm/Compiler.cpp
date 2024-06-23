@@ -264,7 +264,7 @@ void Program::compile(Expression expr)
 		Opcode forEachHeaderCode;
 		Opcode end;
 		forEachHeaderCode.type = OpcodeType::FOREACHPLAYER_BLK_HEADER;
-		end.type = OpcodeType::BLK_END;
+		end.type = OpcodeType::FOREACHPLAYER_BLK_END;
 
 		DATA_IX_T string_index = m_strings.size();
 		m_strings.push_back(eachPlayerLoopVarName);
@@ -507,6 +507,49 @@ int Program::run(Opcode code)
 		m_current_opcode_index  += 1;
 		
 	}
+	else if (code.type == OpcodeType::FOREACHPLAYER_BLK_HEADER)
+	{
+		AttrCont cont;
+		Attr counter;
+		counter.playerRef = 0;
+		counter.type = AttributeType::PLAYER_REF;
+		cont.Store("p", counter);
+
+		Attr loop_start_index;
+		loop_start_index.type = AttributeType::INT;
+		loop_start_index.i = m_current_opcode_index + 1;
+		cont.Store("__LOOP_START_INDEX", loop_start_index);
+
+		m_proc_mode_stack.push_back(PROC_MODE::FOREACH);
+		m_block_name_stack.push_back("__FOREACHPLAYER");
+		m_locale_stack.push_back(cont);
+		m_current_opcode_index++;
+	}
+	else if (code.type == OpcodeType::FOREACHPLAYER_BLK_END)
+	{
+		auto playerRef = m_locale_stack.back().Get("p");
+		assert(playerRef.type == AttributeType::PLAYER_REF);
+
+		if (playerRef.playerRef == m_game.players.size() - 1)
+		{
+			m_locale_stack.pop_back();
+			m_proc_mode_stack.pop_back();
+			m_block_name_stack.pop_back();
+			m_current_opcode_index ++;
+		}
+		else
+		{
+			Attr newPlayerRef;
+			newPlayerRef.type = AttributeType::PLAYER_REF;
+			newPlayerRef.playerRef = playerRef.playerRef + 1;
+			m_locale_stack.back().Store("p", newPlayerRef);
+
+			auto loopStartIndex = m_locale_stack.back().Get("__LOOP_START_INDEX");
+			assert(loopStartIndex.type == AttributeType::INT);
+			int jmp_location = loopStartIndex.i;
+			m_current_opcode_index = jmp_location;
+		}
+	}
 	else if (code.type == OpcodeType::SETUP_BLK_HEADER)
 	{
 		m_proc_mode_stack.push_back(PROC_MODE::CARD);
@@ -646,7 +689,6 @@ int Program::run(Opcode code)
 		TYPE_CODE_T typeCode = typeOpcode.data & TYPE_CODE_T_MASK;
 		m_current_opcode_index++;
 
-		// TODO: STORE VALUE IN 'm_localeStack'
 		Attr a;
 		auto attrType = s_type_code_to_attribute_type(typeCode);
 
@@ -686,6 +728,8 @@ int Program::run(Opcode code)
 		else
 		{
 			AttrCont* cont = GetObjectAttrContPtrFromIdentifier(names.begin(), names.end() - 1);
+			// TODO: Fix bug where nested stack attrs delcarations such as hiddenstack p.hand 
+			//       are overwritten in the game's stack store using their last name
 			cont->Store(names.back(), a);
 		}
 	}
