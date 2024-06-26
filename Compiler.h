@@ -154,6 +154,7 @@ public:
 	int run(bool load=false);
 	int run_setup();
 	int run_turn();
+	vector<AttrCont>& locale_stack();
 	
 	vector<Opcode> opcodes();
 	Game game();

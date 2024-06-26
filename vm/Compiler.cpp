@@ -180,7 +180,7 @@ void Program::compile(Expression expr)
 		end.type = OpcodeType::BLK_END;
 
 		m_opcodes.push_back(start);
-		m_turn_index = m_opcodes.size();
+		m_turn_index = m_opcodes.size()-1;
 		for (auto e : expr.children)
 		{
 			compile(e);
@@ -201,7 +201,7 @@ void Program::compile(Expression expr)
 		start.data |= ((OPCODE_CONV_T)phase_name_index << 32);
 
 		m_opcodes.push_back(start);
-		m_phase_indexes[phase_name] = m_opcodes.size();
+		m_phase_indexes[phase_name] = m_opcodes.size()-1;
 		for (auto e : expr.children)
 		{
 			compile(e);
@@ -550,12 +550,25 @@ int Program::run(Opcode code, bool load)
 			card.parentName = get_card_parent_name(nameSequence);
 
 			m_game.cards[card.name] = card;
+			m_current_opcode_index += 1;
+		}
+		else if (m_proc_mode_stack.back() == PROC_MODE::PHASE)
+		{
+			m_locale_stack.pop_back();
+			assert(!m_locale_stack.empty());
+			assert(m_locale_stack.back().Contains("__INDEX_STORE"));
+			Attr index_store = m_locale_stack.back().Get("__INDEX_STORE");
+			assert(index_store.type == AttributeType::INT);
+			m_current_opcode_index = index_store.i;
+		}
+		else
+		{
+			m_current_opcode_index += 1;
 		}
 
 		m_locale_stack.pop_back();
 		m_proc_mode_stack.pop_back();
 		m_block_name_stack.pop_back();
-		m_current_opcode_index  += 1;
 		
 	}
 	else if (code.type == OpcodeType::FOREACHPLAYER_BLK_HEADER)
@@ -605,49 +618,46 @@ int Program::run(Opcode code, bool load)
 	}
 	else if (code.type == OpcodeType::SETUP_BLK_HEADER)
 	{
-		m_depth++;
-		m_proc_mode_stack.push_back(PROC_MODE::SETUP);
-		m_block_name_stack.push_back("__SETUP");
-		m_locale_stack.push_back(AttrCont());
-
 		if (load)
 		{
 			ignore_block();
 		}
 		else
 		{
+			m_depth++;
+			m_proc_mode_stack.push_back(PROC_MODE::SETUP);
+			m_block_name_stack.push_back("__SETUP");
+			m_locale_stack.push_back(AttrCont());
 			m_current_opcode_index++;
 		}
 	}
 	else if (code.type == OpcodeType::PHASE_BLK_HEADER)
 	{
-		m_depth++;
-		m_proc_mode_stack.push_back(PROC_MODE::PHASE);
-		m_block_name_stack.push_back("__PHASE");
-		m_locale_stack.push_back(AttrCont());
-
 		if (load)
 		{
 			ignore_block();
 		}
 		else
 		{
+			m_depth++;
+			m_proc_mode_stack.push_back(PROC_MODE::PHASE);
+			m_block_name_stack.push_back("__PHASE");
+			m_locale_stack.push_back(AttrCont());
 			m_current_opcode_index++;
 		}
 	}
 	else if (code.type == OpcodeType::TURN_BLK_HEADER)
 	{
-		m_depth++;
-		m_proc_mode_stack.push_back(PROC_MODE::TURN);
-		m_block_name_stack.push_back("__TURN");
-		m_locale_stack.push_back(AttrCont());
-
 		if (load)
 		{
 			ignore_block();
 		}
 		else
 		{
+			m_depth++;
+			m_proc_mode_stack.push_back(PROC_MODE::TURN);
+			m_block_name_stack.push_back("__TURN");
+			m_locale_stack.push_back(AttrCont());
 			m_current_opcode_index++;
 		}
 	}
@@ -673,6 +683,20 @@ int Program::run(Opcode code, bool load)
 		}
 
 		m_current_opcode_index++;
+	}
+	else if (code.type == OpcodeType::DO_DECL)
+	{
+		DATA_IX_T name_idx = (code.data & (OPCODE_CONV_T(0xFF) << 32)) >> 32;
+		string block_name = m_strings[name_idx];
+
+		AttrCont cont;
+		Attr index_store_attr;
+		index_store_attr.type = AttributeType::INT;
+		index_store_attr.i = m_current_opcode_index + 1;
+		cont.Store("__INDEX_STORE", index_store_attr);
+		m_locale_stack.push_back(cont);
+		
+		m_current_opcode_index = m_phase_indexes[block_name];
 	}
 	else if (code.type == OpcodeType::STACK_SOURCE_RANDOM_CARD_TYPE)
 	{
@@ -915,6 +939,7 @@ void Program::ignore_block()
 		if (type == OpcodeType::FOREACHPLAYER_BLK_END)
 			depth--;
 	}
+	m_current_opcode_index++;
 }
 
 void Program::read_name(vector<string>& names, OpcodeType nameType)
@@ -1081,10 +1106,6 @@ AttrCont* Program::GetObjectAttrContPtrFromIdentifier(vector<string>::iterator n
 		}
 	}
 
-	if (!found && m_game.attributeCont.Contains(firstName)) {
-		current = GetGlobalObjectAttrContPtr(m_game.attributeCont, *namesBegin);
-		found = true;
-	}
 
 	if (!found) {
 		throw VMError("Could not find attribute");
@@ -1286,6 +1307,10 @@ Stack* Program::get_stack_ptr(vector<string>& stack_identifier)
 	assert(src != nullptr);
 
 	return src;
+}
+vector<AttrCont>& Program::locale_stack()
+{
+	return m_locale_stack;
 }
 
 /////// I THINK WE MIGHT NEED THIS . . . . not sure though

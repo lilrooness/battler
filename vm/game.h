@@ -143,7 +143,7 @@ class Phase {
 
 class Game {
     public:
-        Game() : winner(-1) {}
+        Game() : winner(-1), currentPlayerIndex(0) {}
         int ID;
         std::string name;
         AttrCont attributeCont;

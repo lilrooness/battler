@@ -137,7 +137,15 @@ int main(int argc, char* argv[]) {
         program.run_setup();
 
         std::cout << "Running ONE turn" << std::endl;
+        AttrCont currentPlayerAttrCont;
+        Attr currentPlayerAttr;
+        currentPlayerAttr.type = AttributeType::PLAYER_REF;
+        currentPlayerAttr.playerRef = program.game().currentPlayerIndex;
+        currentPlayerAttrCont.Store("currentPlayer", currentPlayerAttr);
+
+        program.locale_stack().push_back(currentPlayerAttrCont);
         program.run_turn();
+        program.locale_stack().pop_back();
 
 
     } catch (VMError e) {
