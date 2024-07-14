@@ -1,16 +1,24 @@
 # Battler
 
-### A language for card games
+## A language for card games
 
 Battler is an interpreter and card-game engine, an example of a Snap game can 
 be seen below.
 
-The games currently run automatically without any player interaction, but that is just over the horizon after I move to
-a bytecode implementation. It currently uses a tree-walk, which is hella slow.
+- [x] PlainText to AST parser
+- [x] AST to bytecode compiler
+- [x] Bytecode interpreter can run test game file
+- [x] Interpreter runnable from command line
+- [ ] Full Bytecode interpreter implementation
+- [ ] Library published
+- [ ] Godot Plugin
+- [ ] Python Plugin
 
+### Building this project
 Use this project's simple CMakeLists.txt to build it, although it doesn't link
 with anything except for the C++ standard lib
 
+### Running a script
 Run the interpreter against a game file:
 `.\Battler.exe game_file.txt`
 
@@ -18,21 +26,42 @@ Run the interpreter against a game file:
 ### Eve Online Snap Example Game
 
 ```
-# this game is an implementation of Snap, but with ships from Eve Online
+# this game is an implementation of Snap, but with ships
+# from Eve Online
+
+# it's a lot bigger than it has to be
 
 game TestGame start
-
-    # number of players
-    players 2
 
     visiblestack InPlay
     
     # a hidden stack
     hiddenstack Draw
+
+    # number of players
     
-    # Now for some cards
+
+    # stacks can have member attributes
+    int Draw.x
+
+    # member attributes can even be other stacks!
+    privatestack Draw.h
+
+    # and they can have attributes too!
+    int Draw.h.y
+    int Draw.h.a
+    int Draw.h.b
+    
+    players 2
+
+    Draw.h.b = 6
+
+    int someVarName
+    someVarName = 5*5
+    
+    # cards!
     card Ship start
-        # card attributes, we don't use any of these attributes
+        # card attributes
         int shield
         int armour
         int hull
@@ -40,19 +69,27 @@ game TestGame start
     end
 
     # child cards
-    card Atron Ship start end
+    card Atron Ship start
+        shield = 300 + 1
+        armour = 350 * 2 - 1
+        hull = 400 + 2 * 3
+        attack = 50 + 60 * 6 - 5 / 4
+    end
+    
+    # you dont have to set the attributes
     card Kestral Ship start end
     card Rifter Ship start end
     card Apocolypse Ship start end
     card Comet Ship start end
 
-    # move random cards of type Ship into a stack
+    # move random cards into a stack
     random Ship -> Draw top 100
 
     # move cards between stacks
     Draw -> InPlay top 2
 
-    # a setup block, run once at the start of the game
+
+    # a setup block, run once at the beggining of the game
     setup start
         foreachplayer p start
             privatestack p.Hand
@@ -68,10 +105,7 @@ game TestGame start
     end
 
     phase Place start
-        # currentPlayer is set while a turn is executing
         currentPlayer.Hand -> InPlay top 1
-
-        # Draw -> InPlay top 1
 
         # compare cards from positions in stacks
         if InPlay.top == InPlay.top-1 start
@@ -87,23 +121,13 @@ game TestGame start
         do Place
     end
 end
-
-
 ```
 
 
 If you run the above game in the interpreter, you will get something like this output, showing it executing each turn automatically until ther is a winner
 ```
-running turn
-turn 0 player 0
-turn 1 player 1
-turn 2 player 0
-turn 3 player 1
-turn 4 player 0
-turn 5 player 1
-turn 6 player 0
-turn 7 player 1
-turn 8 player 0
-turn 9 player 1
-the winner is player 1
+Compiling game file
+Loading Compiled Game
+Running game setup
+The winner is 0
 ```
