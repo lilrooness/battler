@@ -571,6 +571,26 @@ int Program::run(Opcode code, bool load)
 		m_block_name_stack.pop_back();
 		
 	}
+	else if (code.type == OpcodeType::IF_BLK_HEADER)
+	{
+		m_current_opcode_index++;
+		bool enter_block = resolve_bool_expression();
+
+		if (enter_block)
+		{
+			m_depth++;
+			m_current_opcode_index++;
+			m_proc_mode_stack.push_back(PROC_MODE::IF);
+			m_block_name_stack.push_back("__IF");
+			AttrCont cont;
+			m_locale_stack.push_back(cont);
+		}
+		else
+		{
+			m_current_opcode_index--;
+			ignore_block();
+		}
+	}
 	else if (code.type == OpcodeType::FOREACHPLAYER_BLK_HEADER)
 	{
 		m_depth++;
@@ -964,7 +984,6 @@ void Program::read_name(vector<string>& names, OpcodeType nameType)
 
 int Program::resolve_number_expression()
 {
-	// TODO: handle math expressions
 	if (m_opcodes[m_current_opcode_index].type == OpcodeType::R_VALUE)
 	{
 		auto int_value_opcode = m_opcodes[m_current_opcode_index];
@@ -977,6 +996,17 @@ int Program::resolve_number_expression()
 		
 		m_current_opcode_index++;
 		return m_ints[data_index];	
+	}
+	if (m_opcodes[m_current_opcode_index].type == OpcodeType::R_VALUE_DOT_SEPERATED_REF_CHAIN)
+	{
+		vector<string> names;
+		read_name(names, m_opcodes[m_current_opcode_index].type);
+
+		Attr attrPtr = get_attr_rvalue(names);
+		
+		assert(attrPtr.type == AttributeType::INT);
+
+		return attrPtr.i;
 	}
 	else if (m_opcodes[m_current_opcode_index].type == OpcodeType::MULTIPLY)
 	{
@@ -1021,7 +1051,245 @@ int Program::resolve_number_expression()
 
 bool Program::resolve_bool_expression()
 {
-	throw VMError("Cannot yet resolve boolean expressions");
+	if (m_opcodes[m_current_opcode_index].type == OpcodeType::R_VALUE)
+	{
+		auto bool_value_opcode = m_opcodes[m_current_opcode_index];
+
+		TYPE_CODE_T type = (bool_value_opcode.data & TYPE_CODE_T_MASK);
+
+		assert(type == BOOL_TC);
+
+		DATA_IX_T data_index = (bool_value_opcode.data & (OPCODE_CONV_T(0xFF) << 32)) >> 32;
+
+		m_current_opcode_index++;
+		return m_bools[data_index];
+	}
+	else if (m_opcodes[m_current_opcode_index].type == OpcodeType::R_VALUE_DOT_SEPERATED_REF_CHAIN)
+	{
+		vector<string> names;
+		read_name(names, m_opcodes[m_current_opcode_index].type);
+
+		Attr attr = get_attr_rvalue(names);
+		if (attr.type != AttributeType::BOOL)
+		{
+			throw VMError("Attribute must be a bool to be a boolean expression");
+		}
+
+		return attr.b;
+	}
+	else if (m_opcodes[m_current_opcode_index].type == OpcodeType::COMPARE)
+	{
+		m_current_opcode_index++;
+		auto left = resolve_expression_to_attr();
+		auto right = resolve_expression_to_attr();
+
+		return compare_attrs(left, right);
+	}
+	else
+	{
+		throw VMError("unsupported reference type used in boolean expression");
+	}
+}
+
+bool Program::compare_attrs(Attr a, Attr b)
+{
+	if (a.type != b.type)
+	{
+		throw VMError("Unable to compare attributes of different type");
+	}
+
+	switch (a.type)
+	{
+	case AttributeType::BOOL:
+		return a.b == b.b;
+	case AttributeType::CARD_REF:
+		return a.cardRef == b.cardRef;
+	case AttributeType::FLOAT:
+		return a.f == b.f;
+	case AttributeType::INT:
+		return a.i == b.i;
+	case AttributeType::PHASE_REF:
+		return a.phaseRef == b.phaseRef;
+	case AttributeType::PLAYER_REF:
+		return a.playerRef == b.playerRef;
+	case AttributeType::STACK_POSITION_REF:
+		return std::get<0>(a.stackPositionRef) == std::get<0>(b.stackPositionRef) && std::get<1>(a.stackPositionRef) == std::get<1>(b.stackPositionRef);
+	case AttributeType::STACK_REF:
+		return a.stackRef == b.stackRef;
+	case AttributeType::STRING:
+		return a.s == b.s;
+	default:
+		throw VMError("this type cannot be compared");
+	}
+}
+
+Attr Program::add_attrs(Attr a, Attr b)
+{
+	throw VMError("Joe needs to implement add_attrs");
+}
+
+Attr Program::multiply_attrs(Attr a, Attr b)
+{
+	throw VMError("Joe needs to implement multiply_attrs");
+}
+
+Attr Program::divide_attrs(Attr a, Attr b)
+{
+	throw VMError("Joe needs to implement divide_attrs");
+}
+
+Attr Program::subtract_attrs(Attr a, Attr b)
+{
+
+	Attr r;
+	switch (a.type)
+	{
+	case AttributeType::FLOAT:
+		r.type = AttributeType::FLOAT;
+		if (b.type == AttributeType::FLOAT)
+		{
+			r.f = a.f - b.f;
+		}
+		else if (b.type == AttributeType::INT)
+		{
+			r.f = a.f - b.i;
+		}
+		else
+		{
+			throw VMError("You cannot subtract this type from a float");
+		}
+		break;
+
+	case AttributeType::INT:
+		r.type = AttributeType::INT;
+		if (b.type == AttributeType::FLOAT)
+		{
+			r.i = a.i - b.f;
+		}
+		else if (b.type == AttributeType::INT)
+		{
+			r.i = a.i - b.i;
+		}
+		else
+		{
+			throw VMError("You cannot subtract this type from an int");
+		}
+		break;
+	case AttributeType::PLAYER_REF:
+		r.type = AttributeType::PLAYER_REF;
+		if (b.type == AttributeType::INT)
+		{
+			b.playerRef = (a.playerRef - b.i) % m_game.players.size();
+		}
+		else
+		{
+			throw VMError("only integers can be subtracted from player references");
+		}
+		break;
+	case AttributeType::STACK_POSITION_REF:
+		//return std::get<0>(a.stackPositionRef) == std::get<0>(b.stackPositionRef) && std::get<1>(a.stackPositionRef) == std::get<1>(b.stackPositionRef);
+		r.type = AttributeType::STACK_POSITION_REF;
+		if (b.type == AttributeType::INT)
+		{
+			r.stackPositionRef = std::tuple<string, int>(std::get<0>(b.stackPositionRef), std::get<1>(a.stackPositionRef) - b.i);
+		}
+		else
+		{
+			throw VMError("only integers can be subtracted from stack position references");
+		}
+		break;
+	default:
+		throw VMError("this type cannot be subtracted from");
+	}
+
+	return r;
+}
+
+Attr Program::resolve_expression_to_attr()
+{
+	if (m_opcodes[m_current_opcode_index].type == OpcodeType::R_VALUE)
+	{
+		auto value_opcode = m_opcodes[m_current_opcode_index];
+
+		TYPE_CODE_T type = (value_opcode.data & TYPE_CODE_T_MASK);
+		DATA_IX_T data_index = (value_opcode.data & (OPCODE_CONV_T(0xFF) << 32)) >> 32;
+
+		Attr a;
+		switch (type)
+		{
+		case INT_TC:
+			a.type = AttributeType::INT;
+			a.i = m_ints[data_index];
+			break;
+		case STRING_TC:
+			a.type = AttributeType::STRING;
+			a.s = m_strings[data_index];
+			break;
+		case BOOL_TC:
+			a.type = AttributeType::BOOL;
+			a.b = m_bools[data_index];
+			break;
+		default:
+			throw VMError("Unsupported rvalue type");
+		}
+
+		m_current_opcode_index++;
+		return a;
+	}
+	else if (m_opcodes[m_current_opcode_index].type == OpcodeType::R_VALUE_DOT_SEPERATED_REF_CHAIN)
+	{
+		vector<string> names;
+		read_name(names, m_opcodes[m_current_opcode_index].type);
+
+		Attr attr = get_attr_rvalue(names);
+		return attr;
+	}
+	else if (m_opcodes[m_current_opcode_index].type == OpcodeType::COMPARE)
+	{
+		bool res = resolve_bool_expression();
+
+		Attr a;
+		a.type = AttributeType::BOOL;
+		a.b = res;
+
+		return a;
+	}
+	else if (m_opcodes[m_current_opcode_index].type == OpcodeType::SUBTRACT)
+	{
+		m_current_opcode_index++;
+		Attr left = resolve_expression_to_attr();
+		Attr right = resolve_expression_to_attr();
+
+		return subtract_attrs(left, right);
+	}
+	else if (m_opcodes[m_current_opcode_index].type == OpcodeType::ADD)
+	{
+		m_current_opcode_index++;
+		Attr left = resolve_expression_to_attr();
+		Attr right = resolve_expression_to_attr();
+
+		return add_attrs(left, right);
+	}
+	else if (m_opcodes[m_current_opcode_index].type == OpcodeType::DIVIDE)
+	{
+		m_current_opcode_index++;
+		Attr left = resolve_expression_to_attr();
+		Attr right = resolve_expression_to_attr();
+
+		return divide_attrs(left, right);
+	}
+	else if (m_opcodes[m_current_opcode_index].type == OpcodeType::MULTIPLY)
+	{
+		m_current_opcode_index++;
+		Attr left = resolve_expression_to_attr();
+		Attr right = resolve_expression_to_attr();
+
+		return multiply_attrs(left, right);
+	}
+	else
+	{
+		throw VMError("Expression -> attr conversion is unsupported for this expression type");
+	}
 }
 
 string Program::resolve_string_expression()
@@ -1127,6 +1395,150 @@ AttrCont* Program::GetObjectAttrContPtrFromIdentifier(vector<string>::iterator n
 	return current;
 }
 
+Attr Program::get_attr_rvalue(vector<string>& names)
+{
+	assert(names.size() > 0);
+
+	bool shallowName = names.size() == 1;
+
+	Attr currentAttr;
+	bool found = false;
+
+	auto nameItr = names.begin();
+
+
+	if (shallowName && m_game.cards.find(*nameItr) != m_game.cards.end())
+	{
+		Attr tmp;
+		tmp.type = AttributeType::CARD_REF;
+		tmp.cardRef = *nameItr;
+		return tmp;
+	}
+	
+	if (shallowName && m_game.stacks.find(*nameItr) != m_game.stacks.end())
+	{
+		Attr tmp;
+		tmp.type = AttributeType::STACK_REF;
+		tmp.stackRef = *nameItr;
+		return tmp;
+	}
+
+	for (auto& locale : m_locale_stack)
+	{
+		if (locale.Contains(*nameItr))
+		{
+			if (shallowName)
+			{
+				return locale.Get(*nameItr);
+			}
+
+			found = true;
+			currentAttr = locale.Get(*nameItr);
+		}
+	}
+
+	if (shallowName && !found)
+	{
+		throw VMError("variable does not exist");
+	}
+
+	if (!found && m_game.cards.find(*nameItr) != m_game.cards.end())
+	{
+		found = true;
+		currentAttr.type = AttributeType::CARD_REF;
+		currentAttr.cardRef = *nameItr;
+	}
+
+	if (!found && m_game.stacks.find(*nameItr) != m_game.stacks.end())
+	{
+		found = true;
+		currentAttr.type = AttributeType::STACK_REF;
+		currentAttr.stackRef = *nameItr;
+	}
+
+	if (!found)
+	{
+		throw VMError("variable does not exist");
+	}
+
+	nameItr++;
+
+	while (nameItr != names.end())
+	{
+		if (currentAttr.type == AttributeType::CARD_REF)
+		{
+			if (m_game.cards[currentAttr.cardRef].attributes.Contains(*nameItr))
+			{
+				if (nameItr == names.end() - 1)
+				{
+					return m_game.cards[currentAttr.cardRef].attributes.Get(*nameItr);
+				}
+
+				currentAttr = m_game.cards[currentAttr.cardRef].attributes.Get(*nameItr);
+			}
+			else
+			{
+				throw VMError("This card does not contain attribute");
+			}
+		}
+		else if (currentAttr.type == AttributeType::STACK_REF)
+		{
+
+			if (*nameItr == "top" || *nameItr == "bottom")
+			{
+				Attr tmp;
+				tmp.type = AttributeType::STACK_POSITION_REF;
+
+				if (*nameItr == "top")
+				{
+					int topIndex = m_game.stacks[currentAttr.stackRef].cards.size() - 1;
+					tmp.stackPositionRef = std::tuple< string, int>(currentAttr.stackRef, topIndex);
+				}
+				else
+				{
+					int bottomIndex = 0;
+					tmp.stackPositionRef = std::tuple< string, int>(currentAttr.stackRef, bottomIndex);
+				}
+
+				return tmp;
+			}
+
+			if (m_game.stacks[currentAttr.stackRef].attributes.Contains(*nameItr))
+			{
+				if (nameItr == names.end() - 1)
+				{
+					return m_game.stacks[currentAttr.stackRef].attributes.Get(*nameItr);
+				}
+
+				currentAttr = m_game.stacks[currentAttr.stackRef].attributes.Get(*nameItr);
+			}
+			else
+			{
+				cout << "This stack does not contain attribute " << *nameItr << endl;
+				throw VMError("This stack does not contain attribute");
+			}
+		}
+		else if (currentAttr.type == AttributeType::PLAYER_REF)
+		{
+			if (m_game.players[currentAttr.playerRef].attributes.Contains(*nameItr))
+			{
+				if (nameItr == names.end() - 1)
+				{
+					return m_game.players[currentAttr.playerRef].attributes.Get(*nameItr);
+				}
+
+				currentAttr = m_game.players[currentAttr.playerRef].attributes.Get(*nameItr);
+			}
+			else
+			{
+				throw VMError("This player does not contain attribute");
+			}
+		}
+
+		nameItr++;
+	}
+}
+
 Attr* Program::get_attr_ptr(vector<string>& names)
 {
 
@@ -1172,14 +1584,14 @@ Attr* Program::get_attr_ptr(vector<string>& names)
 	if (!found && m_game.cards.find(*nameItr) != m_game.cards.end())
 	{
 		found = true;
-		currentAttr.type == AttributeType::CARD_REF;
+		currentAttr.type = AttributeType::CARD_REF;
 		currentAttr.cardRef = *nameItr;
 	}
 
 	if (!found && m_game.stacks.find(*nameItr) != m_game.stacks.end())
 	{
 		found = true;
-		currentAttr.type == AttributeType::STACK_REF;
+		currentAttr.type = AttributeType::STACK_REF;
 		currentAttr.stackRef = *nameItr;
 	}
 
@@ -1313,99 +1725,3 @@ vector<AttrCont>& Program::locale_stack()
 	return m_locale_stack;
 }
 
-/////// I THINK WE MIGHT NEED THIS . . . . not sure though
-
-//Attr* Program::get_attr_ptr(vector<string> names)
-//{
-//	bool found = false;
-//	Attr attr;
-//
-//	auto nameItr = names.begin();
-//	string start_name = *nameItr;
-//	++nameItr;
-//
-//	for (auto& stack : m_locale_stack)
-//	{
-//		if (stack.Contains(start_name))
-//		{
-//			attr = stack.Get(start_name);
-//			found = true;
-//		}
-//	}
-//
-//	if (!found && m_game.attributeCont.Contains(start_name)) {
-//		attr = m_game.attributeCont.Get(start_name);
-//		found = true;
-//	}
-//
-//	if (!found && m_game.cards.find(start_name) != m_game.cards.end()) {
-//		
-//		attr.type = AttributeType::CARD_REF;
-//		attr.cardRef = start_name;
-//		found = true;
-//	}
-//
-//	if (!found)
-//	{
-//		cout << "could not find attr " << start_name << endl;
-//		return false;
-//	}
-//
-//	//if (locale == nullptr)
-//	//{
-//	//	return false;
-//	//}
-//
-//	while (nameItr != names.end()) {
-//		if (attr.type == AttributeType::CARD_REF) {
-//			if (m_game.cards[attr.cardRef].attributes.Contains(*nameItr)) {
-//				attr = m_game.cards[attr.cardRef].attributes.Get(*nameItr);
-//			}
-//			else {
-//				cout << "No attr found with this name on this card " << *nameItr << endl;
-//				return false;
-//			}
-//		}
-//		else if (attr.type == AttributeType::STACK_REF) {
-//			if (*nameItr == "top") {
-//				auto stack = m_game.stacks[attr.stackRef];
-//				auto stackRef = attr.stackRef;
-//				attr = Attr();
-//				attr.type = AttributeType::STACK_POSITION_REF;
-//				// the top of the stack is the index of the last card in the stack
-//				attr.stackPositionRef = { stackRef, stack.cards.size() - 1 };
-//			}
-//			else if (*nameItr == "bottom") {
-//				auto stackRef = attr.stackRef;
-//				attr = Attr();
-//				attr.type = AttributeType::STACK_POSITION_REF;
-//				// the bottom of the stack is always 0
-//				attr.stackPositionRef = { stackRef, 0 };
-//			}
-//			else if (m_game.stacks[attr.stackRef].attributes.Contains(*nameItr)) {
-//				attr = m_game.stacks[attr.stackRef].attributes.Get(*nameItr);
-//			}
-//			else {
-//				cout << "No attr found with this name on this stack " << *nameItr << endl;
-//				return false;
-//			}
-//		}
-//		else if (attr.type == AttributeType::PLAYER_REF) {
-//			if (m_game.players[attr.playerRef].attributes.Contains(*nameItr)) {
-//				attr = m_game.players[attr.playerRef].attributes.Get(*nameItr);
-//			}
-//			else {
-//				cout << "No attr found with this name on this player" << * nameItr << endl;
-//				return false;
-//			}
-//		}
-//		else {
-//			cout << "Not possible to select an attribute on this type" << *nameItr << endl;
-//		}
-//
-//
-//		++nameItr;
-//	}
-//
-//	return found;
-//}

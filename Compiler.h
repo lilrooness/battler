@@ -73,6 +73,7 @@ enum class PROC_MODE
 	SETUP,
 	TURN,
 	FOREACH,
+	IF,
 };
 
 #define TYPE_CODE_T uint16_t
@@ -139,12 +140,20 @@ private:
 	bool resolve_bool_expression();
 	string resolve_string_expression();
 	float resolve_float_expression();
+	Attr resolve_expression_to_attr();
 	
 	void read_name(vector<string>& names, OpcodeType nameType);
 	Attr* get_attr_ptr(vector<string>& names);
+	Attr get_attr_rvalue(vector<string>& names);
 	string get_card_parent_name(string nameSequence);
 	string get_card_name(string nameSequence);
 	Stack* get_stack_ptr(vector<string>& names);
+	bool compare_attrs(Attr a, Attr b);
+	Attr subtract_attrs(Attr a, Attr b);
+	Attr add_attrs(Attr a, Attr b);
+	Attr multiply_attrs(Attr a, Attr b);
+	Attr divide_attrs(Attr a, Attr b);
+	
 	void ignore_block();
 
 public:
