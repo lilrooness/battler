@@ -227,7 +227,7 @@ void Program::compile(Expression expr)
 		code.type = OpcodeType::WINNER_DECL;
 		
 		m_opcodes.push_back(code);
-		compile_name(expr.tokens, NAME_IS_RVALUE);
+		compile_name(expr.tokens, NAME_IS_LVALUE);
 	}
 	else if (expr.type == ExpressionType::IF_DECLARATION)
 	{
@@ -491,6 +491,14 @@ int Program::run_turn()
 	bool done = false;
 	int depth_store = m_depth;
 
+	AttrCont currentPlayerAttrCont;
+    Attr currentPlayerAttr;
+    currentPlayerAttr.type = AttributeType::PLAYER_REF;
+    currentPlayerAttr.playerRef = m_game.currentPlayerIndex;
+    currentPlayerAttrCont.Store("currentPlayer", currentPlayerAttr);
+
+	locale_stack().push_back(currentPlayerAttrCont);
+	
 	m_current_opcode_index = m_turn_index;
 
 	while (!done)
@@ -507,6 +515,10 @@ int Program::run_turn()
 			done = true;
 		}
 	}
+
+	locale_stack().pop_back();
+	m_game.currentPlayerIndex = (currentPlayerAttr.playerRef + 1) % (m_game.players.size());
+
 	return 0;
 }
 
@@ -566,7 +578,11 @@ int Program::run(Opcode code, bool load)
 			m_current_opcode_index += 1;
 		}
 
-		m_locale_stack.pop_back();
+		// never pop the root level attributes
+		if (m_proc_mode_stack.back() != PROC_MODE::GAME)
+		{
+			m_locale_stack.pop_back();
+		}
 		m_proc_mode_stack.pop_back();
 		m_block_name_stack.pop_back();
 		
@@ -579,7 +595,6 @@ int Program::run(Opcode code, bool load)
 		if (enter_block)
 		{
 			m_depth++;
-			m_current_opcode_index++;
 			m_proc_mode_stack.push_back(PROC_MODE::IF);
 			m_block_name_stack.push_back("__IF");
 			AttrCont cont;
@@ -841,7 +856,7 @@ int Program::run(Opcode code, bool load)
 		{
 			
 			Stack newStack;
-			a.stackRef = names.back();
+			a.stackRef = m_game.stacks.size();
 
 			if (typeCode == VISIBLE_STACK_TC)
 			{
@@ -855,7 +870,8 @@ int Program::run(Opcode code, bool load)
 			{
 				newStack.t = StackType::PRIVATE;
 			}
-			m_game.stacks[names.back()] = newStack;
+			
+			m_game.stacks[a.stackRef] = newStack;
 		}
 
 		if (names.size() == 1)
@@ -914,6 +930,20 @@ int Program::run(Opcode code, bool load)
 		{
 			throw VMError("Unsupported lvalue type, not sure how we got here.");
 		}
+	}
+	else if (code.type == OpcodeType::WINNER_DECL)
+	{
+		m_current_opcode_index++;
+
+		vector<string> names;
+		read_name(names, m_opcodes[m_current_opcode_index].type);
+
+		Attr attr = get_attr_rvalue(names);
+		if (attr.type != AttributeType::PLAYER_REF)
+		{
+			throw VMError("You must declare a winner with a playerRef");
+		}
+		m_game.winner = attr.playerRef;
 	}
 	else
 	{
@@ -1113,7 +1143,19 @@ bool Program::compare_attrs(Attr a, Attr b)
 	case AttributeType::PLAYER_REF:
 		return a.playerRef == b.playerRef;
 	case AttributeType::STACK_POSITION_REF:
-		return std::get<0>(a.stackPositionRef) == std::get<0>(b.stackPositionRef) && std::get<1>(a.stackPositionRef) == std::get<1>(b.stackPositionRef);
+	{
+		std::get<0>(a.stackPositionRef) == std::get<0>(b.stackPositionRef) && std::get<1>(a.stackPositionRef) == std::get<1>(b.stackPositionRef);
+		auto stack_a = &m_game.stacks[std::get<0>(a.stackPositionRef)];
+		int pos_ref_a = std::get<1>(a.stackPositionRef);
+
+		auto stack_b = &m_game.stacks[std::get<0>(b.stackPositionRef)];
+		int pos_ref_b = std::get<1>(b.stackPositionRef);
+
+		auto card_a = &stack_a->cards[pos_ref_a];
+		auto card_b = &stack_b->cards[pos_ref_b];
+
+		return card_a->name == card_b->name && card_a->parentName == card_b->parentName;
+	}
 	case AttributeType::STACK_REF:
 		return a.stackRef == b.stackRef;
 	case AttributeType::STRING:
@@ -1191,7 +1233,7 @@ Attr Program::subtract_attrs(Attr a, Attr b)
 		r.type = AttributeType::STACK_POSITION_REF;
 		if (b.type == AttributeType::INT)
 		{
-			r.stackPositionRef = std::tuple<string, int>(std::get<0>(b.stackPositionRef), std::get<1>(a.stackPositionRef) - b.i);
+			r.stackPositionRef = std::tuple<int, int>(std::get<0>(b.stackPositionRef), std::get<1>(a.stackPositionRef) - b.i);
 		}
 		else
 		{
@@ -1415,13 +1457,6 @@ Attr Program::get_attr_rvalue(vector<string>& names)
 		return tmp;
 	}
 	
-	if (shallowName && m_game.stacks.find(*nameItr) != m_game.stacks.end())
-	{
-		Attr tmp;
-		tmp.type = AttributeType::STACK_REF;
-		tmp.stackRef = *nameItr;
-		return tmp;
-	}
 
 	for (auto& locale : m_locale_stack)
 	{
@@ -1447,13 +1482,6 @@ Attr Program::get_attr_rvalue(vector<string>& names)
 		found = true;
 		currentAttr.type = AttributeType::CARD_REF;
 		currentAttr.cardRef = *nameItr;
-	}
-
-	if (!found && m_game.stacks.find(*nameItr) != m_game.stacks.end())
-	{
-		found = true;
-		currentAttr.type = AttributeType::STACK_REF;
-		currentAttr.stackRef = *nameItr;
 	}
 
 	if (!found)
@@ -1492,12 +1520,12 @@ Attr Program::get_attr_rvalue(vector<string>& names)
 				if (*nameItr == "top")
 				{
 					int topIndex = m_game.stacks[currentAttr.stackRef].cards.size() - 1;
-					tmp.stackPositionRef = std::tuple< string, int>(currentAttr.stackRef, topIndex);
+					tmp.stackPositionRef = std::tuple< int, int>(currentAttr.stackRef, topIndex);
 				}
 				else
 				{
 					int bottomIndex = 0;
-					tmp.stackPositionRef = std::tuple< string, int>(currentAttr.stackRef, bottomIndex);
+					tmp.stackPositionRef = std::tuple< int, int>(currentAttr.stackRef, bottomIndex);
 				}
 
 				return tmp;
@@ -1557,11 +1585,6 @@ Attr* Program::get_attr_ptr(vector<string>& names)
 		throw VMError("Cannot create an lvalue reference to a card type");
 	}
 
-	if (shallowName && m_game.stacks.find(*nameItr) != m_game.stacks.end())
-	{
-		throw VMError("Cannot create an lvalue reference to a stack");
-	}
-
 	for (auto& locale : m_locale_stack)
 	{
 		if (locale.Contains(*nameItr))
@@ -1586,13 +1609,6 @@ Attr* Program::get_attr_ptr(vector<string>& names)
 		found = true;
 		currentAttr.type = AttributeType::CARD_REF;
 		currentAttr.cardRef = *nameItr;
-	}
-
-	if (!found && m_game.stacks.find(*nameItr) != m_game.stacks.end())
-	{
-		found = true;
-		currentAttr.type = AttributeType::STACK_REF;
-		currentAttr.stackRef = *nameItr;
 	}
 
 	if (!found)
@@ -1695,26 +1711,14 @@ Stack* Program::get_stack_ptr(vector<string>& stack_identifier)
 
 	Stack* src = nullptr;
 
-	if (stack_identifier.size() == 1)
+	Attr* stackAttr = get_attr_ptr(stack_identifier);
+	assert(stackAttr->type == AttributeType::STACK_REF);
+	auto stackId = stackAttr->stackRef;
+	if (m_game.stacks.find(stackId) == m_game.stacks.end())
 	{
-		auto shallow_name = stack_identifier[0];
-		if (m_game.stacks.find(shallow_name) == m_game.stacks.end())
-		{
-			throw VMError("could not find stack with name: " + shallow_name);
-		}
-		src = &m_game.stacks[shallow_name];
+		throw VMError("could not find stack with name: " + stack_identifier.back());
 	}
-	else
-	{
-		Attr* stackAttr = get_attr_ptr(stack_identifier);
-		assert(stackAttr->type == AttributeType::STACK_REF);
-		auto shallow_name = stackAttr->stackRef;
-		if (m_game.stacks.find(shallow_name) == m_game.stacks.end())
-		{
-			throw VMError("could not find stack with name: " + shallow_name);
-		}
-		src = &m_game.stacks[shallow_name];
-	}
+	src = &m_game.stacks[stackId];
 
 	assert(src != nullptr);
 

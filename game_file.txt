@@ -83,9 +83,8 @@ game TestGame start
 
     phase Place start
         # currentPlayer is set while a turn is executing
+        # random Ship -> InPlay top 1
         currentPlayer.Hand -> InPlay top 1
-
-        # Draw -> InPlay top 1
 
         # compare cards from positions in stacks
         if InPlay.top == InPlay.top-1 start

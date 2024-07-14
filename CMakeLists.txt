@@ -15,6 +15,5 @@ add_executable(Battler
 	Parser.h
 	Compiler.h
 	vm/game.h
-	vm/run.h
 )
 

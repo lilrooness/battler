@@ -532,30 +532,30 @@ void RunExpression(Expression& expr, Game& game, ExpressionType parent, vector<A
             a.f = 0.0f;
             a.type = AttributeType::FLOAT;
         }
-        // TODO: Fix local stack declarations overriding global ones
         else if (type == "visiblestack") {
             isGlobalType=true;
             Stack s;
             s.t = StackType::VISIBLE;
             a.type = AttributeType::STACK_REF;
-            a.stackRef = name;
-            game.stacks[name] = std::move(s);
+
+            a.stackRef = game.stacks.size();
+            game.stacks[game.stacks.size()] = std::move(s);
         }
         else if (type == "hiddenstack") {
             isGlobalType=true;
             Stack s;
             s.t = StackType::HIDDEN;
             a.type = AttributeType::STACK_REF;
-            a.stackRef = name;
-            game.stacks[name] = std::move(s);
+            a.stackRef = game.stacks.size();
+            game.stacks[game.stacks.size()] = std::move(s);
         }
         else if (type == "privatestack") {
             isGlobalType=true;
             Stack s;
             s.t = StackType::PRIVATE;
             a.type = AttributeType::STACK_REF;
-            a.stackRef = name;
-            game.stacks[name] = std::move(s);
+            a.stackRef = game.stacks.size();
+            game.stacks[game.stacks.size()] = std::move(s);
         }
         else {
             std::stringstream ss;

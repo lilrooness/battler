@@ -35,8 +35,8 @@ class Attr {
         Attr(AttributeType t) : type(t) {}
         AttributeType type;
         std::string s;
-        std::string stackRef;
-        std::tuple<std::string, int> stackPositionRef;
+        int stackRef;
+        std::tuple<int, int> stackPositionRef;
         std::string cardRef;
         std::string phaseRef;
         
@@ -149,7 +149,7 @@ class Game {
         AttrCont attributeCont;
         std::unordered_map<std::string, Phase> phases;
         std::unordered_map<std::string, Card> cards;
-        std::unordered_map<std::string, Stack> stacks;
+        std::unordered_map<int, Stack> stacks;
         std::unordered_map<std::string, int> playerBindings;
         std::vector<Player> players;
         Expression setup; // old tree walk mode

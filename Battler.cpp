@@ -8,7 +8,6 @@
 #include "Parser.h"
 #include "expression.h"
 #include "vm/game.h"
-#include "vm/run.h"
 
 #include "Compiler.h"
 
@@ -41,6 +40,8 @@ std::string GetErrorString(std::string errorTypeString, std::string reason, Toke
 }
 
 int main(int argc, char* argv[]) {
+
+    srand(time(NULL));
 
     if (argc < 2) {
 
@@ -93,40 +94,6 @@ int main(int argc, char* argv[]) {
 
         Expression expr = GetExpression(tokens.begin(), tokens.end());
 
-        //Game game;
-        //vector<AttrCont> localeStack {};
-        //std::cout << "Initalizing . . ." << std::endl;
-        //RunExpression(expr, game, ExpressionType::UNKNOWN, localeStack);
-
-        //std::cout << "running " << game.name <<  " setup block" << std::endl;
-        //for (int i = 0; i < game.setup.children.size(); i++)
-        //{
-        //    RunExpression(game.setup.children[i], game, ExpressionType::UNKNOWN, localeStack);
-        //}
-        //game.Print();
-
-        //std::cout << "running turn" << std::endl;
-        //auto currentPlayerAttr = Attr{ AttributeType::PLAYER_REF };
-        //currentPlayerAttr.playerRef = 0;
-        //auto turnAttrs =  AttrCont();
-        //turnAttrs.Store("currentPlayer", currentPlayerAttr);
-        //localeStack.push_back(turnAttrs);
-
-        //int turn = 0;
-        //while (game.winner < 0) {
-        //    localeStack.back().Get("currentPlayer").playerRef = turn % game.players.size();
-        //    cout << "turn " << turn++ << " player " << localeStack.back().Get("currentPlayer").playerRef << endl;
-        //    for (int i = 0; i < game.turn.children.size(); i++)
-        //    {
-        //        RunExpression(game.turn.children[i], game, ExpressionType::UNKNOWN, localeStack);
-        //    }
-        //}
-
-        //cout << "the winner is player " << game.winner << std::endl;
-
-        //localeStack.pop_back();
-
-
         std::cout << "Compiling game file" << std::endl;
         program.compile(expr);
 
@@ -135,18 +102,13 @@ int main(int argc, char* argv[]) {
 
         std::cout << "Running game setup" << std::endl;
         program.run_setup();
-
-        std::cout << "Running ONE turn" << std::endl;
-        AttrCont currentPlayerAttrCont;
-        Attr currentPlayerAttr;
-        currentPlayerAttr.type = AttributeType::PLAYER_REF;
-        currentPlayerAttr.playerRef = program.game().currentPlayerIndex;
-        currentPlayerAttrCont.Store("currentPlayer", currentPlayerAttr);
-
-        program.locale_stack().push_back(currentPlayerAttrCont);
-        program.run_turn();
-        program.locale_stack().pop_back();
-
+        
+        while (program.game().winner == -1)
+        {
+            program.run_turn();
+        }
+        
+        cout << "The winner is " << program.game().winner << endl;
 
     } catch (VMError e) {
         std::cout << "VM Error" << e.reason << endl;
@@ -159,9 +121,6 @@ int main(int argc, char* argv[]) {
         return 1;
     } catch (NoNameException e) {
         std::cout << "Error: " << e.name << " is not declared" << std::endl;
-        return 1;
-    } catch (RuntimeError e) {
-        std::cout << GetErrorString("runtime error", e.reason, e.t, lines) << endl;
         return 1;
     } catch (OperationError e) {
         std::cout << e.reason << endl;
