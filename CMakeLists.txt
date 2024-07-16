@@ -17,3 +17,25 @@ add_executable(Battler
 	vm/game.h
 )
 
+add_library(paper
+	SHARED
+	Expression.cpp
+	vm/Compiler.cpp
+	Parser.cpp
+	InterpreterErrors.cpp
+	vm/game.cpp
+	Battler.h
+	expression.h
+	interpreter_errors.h
+	Parser.h
+	Compiler.h
+	vm/game.h
+	Paper.h
+)
+
+install(
+	TARGETS Battler paper
+)
+install(
+	FILES Paper.h DESTINATION include
+)
