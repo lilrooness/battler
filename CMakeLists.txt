@@ -24,18 +24,23 @@ add_library(paper
 	Parser.cpp
 	InterpreterErrors.cpp
 	vm/game.cpp
+	paper.cpp
 	Battler.h
 	expression.h
 	interpreter_errors.h
 	Parser.h
 	Compiler.h
 	vm/game.h
-	Paper.h
+	paper.h
 )
+
+target_compile_definitions(paper PRIVATE PAPER_EXPORTS=1)
 
 install(
 	TARGETS Battler paper
 )
 install(
-	FILES Paper.h DESTINATION include
+	FILES 
+	paper.h
+	DESTINATION include
 )

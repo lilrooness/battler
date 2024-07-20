@@ -104,9 +104,23 @@ public:
 
 class Program
 {
+public:
+	Program() : m_depth(0), m_current_opcode_index(0) {};
+	void Compile(vector<string>);
+	int Run(bool load = false);
+	int RunSetup();
+	int RunTurn();
+	vector<AttrCont>& locale_stack();
+
+	vector<Opcode> opcodes();
+	Game game();
+
 private:
 	//compiled data
 	vector<Opcode> m_opcodes;
+	vector<Token> m_tokens;
+
+	Expression m_rootExpression;
 
 	vector<string> m_strings;
 	vector<int> m_ints;
@@ -129,9 +143,10 @@ private:
 
 	int run(Opcode code, bool load=false);
 
-	//bool store_attribute_with_dot_seperated_name(vector<string>, Attr);
-
 	static AttributeType s_type_code_to_attribute_type(TYPE_CODE_T);
+
+	void ignore_block();
+	void compile_expression(Expression);
 
 	//copied from run.h
 	AttrCont* GetObjectAttrContPtrFromIdentifier(vector<string>::iterator namesBegin, vector<string>::iterator namesEnd);
@@ -153,21 +168,6 @@ private:
 	Attr add_attrs(Attr a, Attr b);
 	Attr multiply_attrs(Attr a, Attr b);
 	Attr divide_attrs(Attr a, Attr b);
-	
-	void ignore_block();
-
-public:
-	Program(): m_depth(0), m_current_opcode_index(0) {};
-	
-	void compile(Expression);
-	int run(bool load=false);
-	int run_setup();
-	int run_turn();
-	vector<AttrCont>& locale_stack();
-	
-	vector<Opcode> opcodes();
-	Game game();
-	
 };
 
 class CompileError {

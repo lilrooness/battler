@@ -11,20 +11,6 @@
 
 #include "Compiler.h"
 
-void TestEvaluateExpression(Expression &expr) {
-    using std::cout;
-    using std::endl;
-
-    for (auto t : expr.tokens) {
-        cout << t.text << " ";
-    }
-    cout << endl;
-
-    for (auto child : expr.children) {
-        TestEvaluateExpression(child);
-    }
-}
-
 std::string GetErrorString(std::string errorTypeString, std::string reason, Token t, vector<string> lines) {
     std::stringstream ss;
     ss << "Error: " << errorTypeString << " on line " << t.l << std::endl;
@@ -58,54 +44,28 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::vector<Token> tokens;
     std::vector<std::string> lines;
 
-
     std::string line;
-    while(std::getline(is, line)) {
-
+    while (std::getline(is, line))
+    {
         lines.push_back(line);
-        auto start = line.begin();
-        auto end = line.end();
-        
-        while (start != end) {
-
-            auto resPair = getNextToken(start, end);
-            Token t = resPair.first;
-
-            if (t.type == TokenType::comment) {
-                break;
-            }
-
-            if (t.type != TokenType::space) {
-                
-                t.l = lines.size();
-                t.c = std::distance(line.begin(), start);
-                tokens.push_back(std::move(t));
-            }
-            
-            start = resPair.second;
-        }
     }
 
     Program program;
     try {
-
-        Expression expr = GetExpression(tokens.begin(), tokens.end());
-
         std::cout << "Compiling game file" << std::endl;
-        program.compile(expr);
+        program.Compile(lines);
 
         std::cout << "Loading Compiled Game" << std::endl;
-        program.run(true);
+        program.Run(true);
 
         std::cout << "Running game setup" << std::endl;
-        program.run_setup();
+        program.RunSetup();
         
         while (program.game().winner == -1)
         {
-            program.run_turn();
+            program.RunTurn();
         }
         
         cout << "The winner is " << program.game().winner << endl;
@@ -132,4 +92,3 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
-

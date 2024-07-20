@@ -9,6 +9,37 @@ vector<Opcode> Program::opcodes()
 	return m_opcodes;
 }
 
+void Program::Compile(vector<string> lines)
+{
+	for (std::string line : lines)
+	{
+		auto start = line.begin();
+		auto end = line.end();
+
+		while (start != end) {
+
+			auto resPair = getNextToken(start, end);
+			Token t = resPair.first;
+
+			if (t.type == TokenType::comment) {
+				break;
+			}
+
+			if (t.type != TokenType::space) {
+
+				t.l = lines.size();
+				t.c = std::distance(line.begin(), start);
+				m_tokens.push_back(std::move(t));
+			}
+
+			start = resPair.second;
+		}
+	}
+
+	m_rootExpression = GetExpression(m_tokens.begin(), m_tokens.end());
+	compile_expression(m_rootExpression);
+}
+
 #define NAME_IS_LVALUE true
 #define NAME_IS_RVALUE false
 void Program::compile_name(vector<Token> tokens, bool lvalue)
@@ -134,7 +165,7 @@ void Program::factor_expression(Expression expr)
 	factor_expression(right_expr);
 }
 
-void Program::compile(Expression expr)
+void Program::compile_expression(Expression expr)
 {
 	if (expr.type == ExpressionType::GAME_DECLARATION)
 	{
@@ -153,7 +184,7 @@ void Program::compile(Expression expr)
 		m_opcodes.push_back(start);
 		expr.children.pop_back();
 		for (auto e : expr.children) {
-			compile(e);
+			compile_expression(e);
 		}
 		m_opcodes.push_back(end);
 	}
@@ -168,7 +199,7 @@ void Program::compile(Expression expr)
 		m_setup_index = m_opcodes.size()-1;
 		for (auto e : expr.children)
 		{
-			compile(e);
+			compile_expression(e);
 		}
 		m_opcodes.push_back(end);
 	}
@@ -183,7 +214,7 @@ void Program::compile(Expression expr)
 		m_turn_index = m_opcodes.size()-1;
 		for (auto e : expr.children)
 		{
-			compile(e);
+			compile_expression(e);
 		}
 		m_opcodes.push_back(end);
 	}
@@ -204,7 +235,7 @@ void Program::compile(Expression expr)
 		m_phase_indexes[phase_name] = m_opcodes.size()-1;
 		for (auto e : expr.children)
 		{
-			compile(e);
+			compile_expression(e);
 		}
 		m_opcodes.push_back(end);
 	}
@@ -251,7 +282,7 @@ void Program::compile(Expression expr)
 
 		m_opcodes.push_back(ifHeader);
 		factor_expression(booleanExpression);
-		compile(block);
+		compile_expression(block);
 		m_opcodes.push_back(end);
 	}
 	else if (expr.type == ExpressionType::FOREACHPLAYER_DECLARATION)
@@ -274,7 +305,7 @@ void Program::compile(Expression expr)
 		m_opcodes.push_back(forEachHeaderCode);
 		for (auto e : expr.children)
 		{
-			compile(e);
+			compile_expression(e);
 		}
 		m_opcodes.push_back(end);
 	}
@@ -378,7 +409,7 @@ void Program::compile(Expression expr)
 		expr.children.pop_back();
 
 		for (auto e : expr.children) {
-			compile(e);
+			compile_expression(e);
 		}
 
 		Opcode end;
@@ -448,7 +479,7 @@ void Program::compile(Expression expr)
 	}
 }
 
-int Program::run(bool load)
+int Program::Run(bool load)
 {
 	
 	while (m_game.winner == -1 && m_current_opcode_index < m_opcodes.size())
@@ -462,7 +493,7 @@ int Program::run(bool load)
 	return 0;
 }
 
-int Program::run_setup()
+int Program::RunSetup()
 {
 	bool done = false;
 	int depth_store = m_depth;
@@ -486,7 +517,7 @@ int Program::run_setup()
 	return 0;
 }
 
-int Program::run_turn()
+int Program::RunTurn()
 {
 	bool done = false;
 	int depth_store = m_depth;

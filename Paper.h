@@ -1,4 +1,18 @@
-#ifndef PAPER_H
-#define PAPER_H
+#ifdef PAPER_EXPORTS
+#define PAPER_API __declspec(dllexport)
+#else
+#define PAPER_API __declspec(dllimport)
+#endif
 
-#endif // !PAPER_H
+#include <vector>
+#include <string>
+
+class Program;
+
+PAPER_API Program* Paper_newProgram();
+
+PAPER_API void Paper_compile(Program* program, std::vector<std::string> lines);
+
+PAPER_API void Paper_runSetup(Program* program);
+
+PAPER_API void Paper_runTurn(Program* program);
