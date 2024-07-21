@@ -1,3 +1,5 @@
+#include <stdlib.h>
+
 #include "paper.h"
 #include "Compiler.h"
 
@@ -8,9 +10,21 @@ Program* Paper_newProgram()
 	return p;
 }
 
-void Paper_compile(Program* program, std::vector<std::string> lines)
+void Paper_compile(Program* program, const char** lines, int size)
 {
-	program->Compile(lines);
+	std::vector<std::string> v_lines;
+	for (int i = 0; i < size; i++)
+	{
+		auto s = std::string(lines[i]);
+		v_lines.push_back(s);
+	}
+
+	program->Compile(v_lines);
+}
+
+void Paper_load(Program* program)
+{
+	program->Run(true);
 }
 
 void Paper_runSetup(Program* program)

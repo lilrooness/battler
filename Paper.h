@@ -11,7 +11,7 @@ class Program;
 
 PAPER_API Program* Paper_newProgram();
 
-PAPER_API void Paper_compile(Program* program, std::vector<std::string> lines);
+PAPER_API void Paper_compile(Program* program, const char** lines, int size);
 
 PAPER_API void Paper_runSetup(Program* program);
 
