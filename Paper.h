@@ -4,8 +4,14 @@
 #define PAPER_API __declspec(dllimport)
 #endif
 
-#include <vector>
-#include <string>
+typedef void(stack_move_callback_fun)(
+	int from,
+	int to,
+	bool from_top,
+	bool to_top,
+	int* cardIds,
+	int nCards
+);
 
 class Program;
 
@@ -16,3 +22,5 @@ PAPER_API void Paper_compile(Program* program, const char** lines, int size);
 PAPER_API void Paper_runSetup(Program* program);
 
 PAPER_API void Paper_runTurn(Program* program);
+
+PAPER_API void Paper_setStackMoveCallback(Program* program, stack_move_callback_fun* f);

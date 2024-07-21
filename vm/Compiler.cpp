@@ -1760,3 +1760,15 @@ vector<AttrCont>& Program::locale_stack()
 	return m_locale_stack;
 }
 
+void Program::SetStackMoveCallbackFun(stack_move_callback_fun* fun)
+{
+	m_stack_move_callback = fun;
+}
+
+void Program::call_stack_move_callback(int from, int to, bool fromTop, bool toTop, int* cardIds, int nCards)
+{
+	if (m_stack_move_callback != nullptr)
+	{
+		m_stack_move_callback(from, to, fromTop, toTop, cardIds, nCards);
+	}
+}

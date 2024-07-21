@@ -93,6 +93,15 @@ const TYPE_CODE_T PRIVATE_STACK_TC = 0x07;
 const TYPE_CODE_T CARD_TC          = 0x08;
 const TYPE_CODE_T STACK_REF        = 0x09;
 
+typedef void( stack_move_callback_fun )(
+	int from,
+	int to,
+	bool from_top,
+	bool to_top,
+	int* cardIds,
+	int nCards
+);
+
 class Opcode
 {
 public:
@@ -111,6 +120,8 @@ public:
 	int RunSetup();
 	int RunTurn();
 	vector<AttrCont>& locale_stack();
+
+	void SetStackMoveCallbackFun(stack_move_callback_fun* fun);
 
 	vector<Opcode> opcodes();
 	Game game();
@@ -137,6 +148,8 @@ private:
 	vector<AttrCont> m_locale_stack;
 	vector<PROC_MODE> m_proc_mode_stack;
 	vector<string> m_block_name_stack;
+
+	stack_move_callback_fun* m_stack_move_callback;
 
 	void factor_expression(Expression);
 	void compile_name(vector<Token>, bool lvalue);
@@ -168,6 +181,8 @@ private:
 	Attr add_attrs(Attr a, Attr b);
 	Attr multiply_attrs(Attr a, Attr b);
 	Attr divide_attrs(Attr a, Attr b);
+
+	void call_stack_move_callback(int from, int to, bool fromTop, bool toTop, int* cardIds, int nCards);
 };
 
 class CompileError {
