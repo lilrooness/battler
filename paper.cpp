@@ -37,7 +37,7 @@ void Paper_runTurn(Program* program)
 	program->RunTurn();
 }
 
-void Paper_setStackMoveCallback(Program* program, stack_move_callback_fun* f)
+void Paper_setStackMoveCallback(Program* program, stack_move_callback_fun* f, void* data)
 {
-	program->SetStackMoveCallbackFun(f);
+	program->SetStackMoveCallbackFun(f, data);
 }

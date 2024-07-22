@@ -67,6 +67,7 @@ class AttrCont {
 
 class Stack {
     public:
+        int ID;
         StackType t;
         int ownerID;
         std::vector<Card>  cards;

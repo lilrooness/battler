@@ -98,8 +98,9 @@ typedef void( stack_move_callback_fun )(
 	int to,
 	bool from_top,
 	bool to_top,
-	int* cardIds,
-	int nCards
+	const int* cardIds,
+	int nCards,
+	void* data
 );
 
 class Opcode
@@ -114,14 +115,14 @@ public:
 class Program
 {
 public:
-	Program() : m_depth(0), m_current_opcode_index(0) {};
+	Program() : m_depth(0), m_current_opcode_index(0), m_stack_move_callback(nullptr) {};
 	void Compile(vector<string>);
 	int Run(bool load = false);
 	int RunSetup();
 	int RunTurn();
 	vector<AttrCont>& locale_stack();
 
-	void SetStackMoveCallbackFun(stack_move_callback_fun* fun);
+	void SetStackMoveCallbackFun(stack_move_callback_fun* fun, void* data);
 
 	vector<Opcode> opcodes();
 	Game game();
@@ -150,6 +151,7 @@ private:
 	vector<string> m_block_name_stack;
 
 	stack_move_callback_fun* m_stack_move_callback;
+	void* m_stack_callback_data;
 
 	void factor_expression(Expression);
 	void compile_name(vector<Token>, bool lvalue);
@@ -182,7 +184,7 @@ private:
 	Attr multiply_attrs(Attr a, Attr b);
 	Attr divide_attrs(Attr a, Attr b);
 
-	void call_stack_move_callback(int from, int to, bool fromTop, bool toTop, int* cardIds, int nCards);
+	void call_stack_move_callback(int from, int to, bool fromTop, bool toTop, const int* cardIds, int nCards);
 };
 
 class CompileError {

@@ -9,8 +9,9 @@ typedef void(stack_move_callback_fun)(
 	int to,
 	bool from_top,
 	bool to_top,
-	int* cardIds,
-	int nCards
+	const int* cardIds,
+	int nCards,
+	void* data
 );
 
 class Program;
@@ -19,8 +20,10 @@ PAPER_API Program* Paper_newProgram();
 
 PAPER_API void Paper_compile(Program* program, const char** lines, int size);
 
+PAPER_API void Paper_load(Program* program);
+
 PAPER_API void Paper_runSetup(Program* program);
 
 PAPER_API void Paper_runTurn(Program* program);
 
-PAPER_API void Paper_setStackMoveCallback(Program* program, stack_move_callback_fun* f);
+PAPER_API void Paper_setStackMoveCallback(Program* program, stack_move_callback_fun* f, void* data);

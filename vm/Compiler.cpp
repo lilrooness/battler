@@ -816,8 +816,15 @@ int Program::run(Opcode code, bool load)
 
 		vector<Card> cardsTaken;
 
+		vector<int> forCallbackReport_cardsTaken;
+		bool forCallbackReport_sourceTop = false;
+		bool forCallbackReport_destTop = false;
+		int forCallbackReport_src = source->ID;
+		int forCallbackReport_dst = dst->ID;
+
 		if (code.type == OpcodeType::STACK_SOURCE_BOTTOM)
 		{
+			forCallbackReport_sourceTop = false;
 			int limit = std::min(
 				static_cast<int>(source->cards.size()),
 				move_amount
@@ -839,6 +846,7 @@ int Program::run(Opcode code, bool load)
 		}
 		else if (code.type == OpcodeType::STACK_SOURCE_TOP)
 		{
+			forCallbackReport_sourceTop = true;
 			int limit = std::min(
 				static_cast<int>(source->cards.size()),
 				move_amount
@@ -853,13 +861,29 @@ int Program::run(Opcode code, bool load)
 
 		if (destination_opcode_type == OpcodeType::STACK_DEST_TOP)
 		{
+			forCallbackReport_destTop = true;
 			std::reverse(cardsTaken.begin(), cardsTaken.end());
 			dst->cards.insert(dst->cards.end(), cardsTaken.begin(), cardsTaken.end());
 		}
 		else if (destination_opcode_type == OpcodeType::STACK_DEST_BOTTOM)
 		{
+			forCallbackReport_destTop = false;
 			dst->cards.insert(dst->cards.begin(), cardsTaken.begin(), cardsTaken.end());
 		}
+
+		for (Card c : cardsTaken)
+		{
+			forCallbackReport_cardsTaken.push_back(c.ID);
+		}
+
+		call_stack_move_callback(
+			forCallbackReport_src,
+			forCallbackReport_dst,
+			forCallbackReport_sourceTop,
+			forCallbackReport_destTop,
+			forCallbackReport_cardsTaken.data(),
+			forCallbackReport_cardsTaken.size()
+		);
 	}
 	else if (code.type == OpcodeType::ATTR_DECL)
 	{
@@ -902,6 +926,7 @@ int Program::run(Opcode code, bool load)
 				newStack.t = StackType::PRIVATE;
 			}
 			
+			newStack.ID = m_game.stacks.size();
 			m_game.stacks[a.stackRef] = newStack;
 		}
 
@@ -1760,15 +1785,16 @@ vector<AttrCont>& Program::locale_stack()
 	return m_locale_stack;
 }
 
-void Program::SetStackMoveCallbackFun(stack_move_callback_fun* fun)
+void Program::SetStackMoveCallbackFun(stack_move_callback_fun* fun, void* data)
 {
 	m_stack_move_callback = fun;
+	m_stack_callback_data = data;
 }
 
-void Program::call_stack_move_callback(int from, int to, bool fromTop, bool toTop, int* cardIds, int nCards)
+void Program::call_stack_move_callback(int from, int to, bool fromTop, bool toTop, const int* cardIds, int nCards)
 {
 	if (m_stack_move_callback != nullptr)
 	{
-		m_stack_move_callback(from, to, fromTop, toTop, cardIds, nCards);
+		m_stack_move_callback(from, to, fromTop, toTop, cardIds, nCards, m_stack_callback_data);
 	}
 }
