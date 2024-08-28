@@ -3,6 +3,7 @@
 #include "../expression.h"
 #include "../interpreter_errors.h"
 
+namespace Battler {
 
 vector<Opcode> Program::opcodes()
 {
@@ -1797,4 +1798,6 @@ void Program::call_stack_move_callback(int from, int to, bool fromTop, bool toTo
 	{
 		m_stack_move_callback(from, to, fromTop, toTop, cardIds, nCards, m_stack_callback_data);
 	}
+}
+
 }

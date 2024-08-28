@@ -10,6 +10,11 @@
 
 #include "../expression.h"
 
+
+namespace Battler {
+
+
+
 class Card;
 class AttributeContainer;
 
@@ -117,5 +122,6 @@ class Game {
 
         vector<Card> get_cards_of_type(string type);
 };
+}
 
 #endif // !GAME_H

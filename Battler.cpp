@@ -11,6 +11,8 @@
 
 #include "Compiler.h"
 
+using namespace Battler;
+
 std::string GetErrorString(std::string errorTypeString, std::string reason, Token t, vector<string> lines) {
     std::stringstream ss;
     ss << "Error: " << errorTypeString << " on line " << t.l << std::endl;
