@@ -9,9 +9,8 @@ be seen below.
 - [x] AST to bytecode compiler
 - [x] Bytecode interpreter can run test game file
 - [x] Interpreter runnable from command line
-- [ ] Full Bytecode interpreter implementation
+- [x] Full Bytecode interpreter implementation
 - [ ] Library published
-- [ ] Godot Plugin
 - [ ] Python Plugin
 
 ### Building this project
