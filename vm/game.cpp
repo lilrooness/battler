@@ -21,28 +21,28 @@ namespace Battler {
         std::stringstream ss;
 
         if (type == AttributeType::BOOL) {
-            ss << "BOOL " << b;
+            ss << b;
         }
         else if (type == AttributeType::INT) {
-            ss << "INT " << i;
+            ss << i;
         }
         else if (type == AttributeType::FLOAT) {
-            ss << "FLOAT " << f;
+            ss << f;
         }
         else if (type == AttributeType::STRING) {
-            ss << "STRING " << s;
+            ss << s;
         }
-        else if (type == AttributeType::CARD_REF) {
-            ss << "CARD_REF " << cardRef;
+        if (type == AttributeType::CARD_REF) {
+            ss << cardRef;
         }
         else if (type == AttributeType::PLAYER_REF) {
-            ss << "PLAYER_REF " << playerRef;
+            ss << playerRef;
         }
         else if (type == AttributeType::STACK_REF) {
-            ss << "STACK_REF " << stackRef;
+            ss << stackRef;
         }
         else if (type == AttributeType::STACK_POSITION_REF) {
-            ss << "STACK_POSITION_REF" << std::get<0>(stackPositionRef) << " " << std::get<1>(stackPositionRef);
+            ss << std::get<0>(stackPositionRef) << " " << std::get<1>(stackPositionRef);
         }
 
         return ss.str();
