@@ -46,7 +46,7 @@ class Attr {
         std::string phaseRef;
         
         union {
-            int i;
+            int i{0};
             bool b;
             float f;
             int playerRef;
