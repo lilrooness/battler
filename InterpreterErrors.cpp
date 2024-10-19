@@ -16,6 +16,7 @@ namespace Battler {
         }
     }
 
+
     void ensureTokenTypeAndText(TokenType type, std::string text, const Token& t, std::string message) {
 
         if (t.type != type || t.text != text) {
@@ -25,3 +26,4 @@ namespace Battler {
     }
 
 }
+

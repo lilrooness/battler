@@ -1,6 +1,15 @@
 #include "game.h"
 
 namespace Battler {
+
+    Stack::Stack()
+    {
+        Attr ownerIDAttr = Attr();
+        ownerIDAttr.type = AttributeType::PLAYER_REF;
+        ownerIDAttr.playerRef = -1;
+        this->attributes.Store("ownerID", ownerIDAttr);
+    }
+
     vector<Card> Game::get_cards_of_type(string type)
     {
         vector<Card> matching_cards;

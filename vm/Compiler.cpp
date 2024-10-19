@@ -464,6 +464,10 @@ void Program::compile_expression(Expression expr)
 		{
 			typeCode.data |= CARD_TC;
 		}
+		else if (type == "playerref")
+		{
+			typeCode.data |= PLAYER_REF_TC;
+		}
 
 		m_opcodes.push_back(attrDeclCode);
 		compile_name(nameExpression.tokens, NAME_IS_LVALUE);
@@ -983,6 +987,10 @@ int Program::run(Opcode code, bool load)
 			float value = resolve_float_expression();
 			attrPtr->f = value;
 		}
+		else if (attrPtr->type == AttributeType::PLAYER_REF)
+		{
+			attrPtr->playerRef = resolve_expression_to_attr().playerRef;
+		}
 		else
 		{
 			throw VMError("Unsupported lvalue type, not sure how we got here.");
@@ -1335,7 +1343,7 @@ Attr Program::resolve_expression_to_attr()
 		m_current_opcode_index++;
 		return a;
 	}
-	else if (m_opcodes[m_current_opcode_index].type == OpcodeType::R_VALUE_DOT_SEPERATED_REF_CHAIN)
+	else if (m_opcodes[m_current_opcode_index].type == OpcodeType::R_VALUE_DOT_SEPERATED_REF_CHAIN || m_opcodes[m_current_opcode_index].type == OpcodeType::R_VALUE_REF)
 	{
 		vector<string> names;
 		read_name(names, m_opcodes[m_current_opcode_index].type);
@@ -1426,6 +1434,8 @@ AttributeType Program::s_type_code_to_attribute_type(TYPE_CODE_T t)
 		return AttributeType::STACK_REF;
 	case CARD_TC:
 		return AttributeType::CARD_REF;
+	case PLAYER_REF_TC:
+		return AttributeType::PLAYER_REF;
 	default:
 		return AttributeType::UNDEFINED;
 	}

@@ -95,6 +95,7 @@ namespace Battler {
 	const TYPE_CODE_T PRIVATE_STACK_TC = 0x07;
 	const TYPE_CODE_T CARD_TC = 0x08;
 	const TYPE_CODE_T STACK_REF = 0x09;
+	const TYPE_CODE_T PLAYER_REF_TC = 0x10;
 
 	typedef void(stack_move_callback_fun)(
 		int from,
