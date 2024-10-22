@@ -1216,6 +1216,11 @@ bool Program::compare_attrs(Attr a, Attr b)
 		auto stack_b = &m_game.stacks[std::get<0>(b.stackPositionRef)];
 		int pos_ref_b = std::get<1>(b.stackPositionRef);
 
+		if (pos_ref_a < 0 || pos_ref_b < 0)
+		{
+			return false;
+		}
+
 		auto card_a = &stack_a->cards[pos_ref_a];
 		auto card_b = &stack_b->cards[pos_ref_b];
 
@@ -1298,7 +1303,7 @@ Attr Program::subtract_attrs(Attr a, Attr b)
 		r.type = AttributeType::STACK_POSITION_REF;
 		if (b.type == AttributeType::INT)
 		{
-			r.stackPositionRef = std::tuple<int, int>(std::get<0>(b.stackPositionRef), std::get<1>(a.stackPositionRef) - b.i);
+			r.stackPositionRef = std::tuple<int, int>(std::get<0>(a.stackPositionRef), std::get<1>(a.stackPositionRef) - b.i);
 		}
 		else
 		{
@@ -1594,6 +1599,15 @@ Attr Program::get_attr_rvalue(vector<string>& names)
 					int bottomIndex = 0;
 					tmp.stackPositionRef = std::tuple< int, int>(currentAttr.stackRef, bottomIndex);
 				}
+
+				return tmp;
+			}
+			else if (*nameItr == "size")
+			{
+				Attr tmp;
+				tmp.type = AttributeType::INT;
+
+				tmp.i = m_game.stacks[currentAttr.stackRef].cards.size();
 
 				return tmp;
 			}
