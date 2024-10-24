@@ -32,7 +32,14 @@ class OperationError {
         OperationError(std::string reason): reason{reason} {}
 };
 
-enum class StackType {VISIBLE, PRIVATE, HIDDEN};
+enum class StackType {
+    VISIBLE,
+    PRIVATE,
+    HIDDEN,
+    FLAT_VISIBLE,
+    FLAT_PRIVATE,
+    FLAT_HIDDEN
+};
 
 class Attr {
     public:
@@ -81,7 +88,9 @@ class Stack {
 
 class Card {
     public:
-        int ID;
+        Card() : UUID(-1) {}
+        int UUID; // unique istance ID
+        int ID; // NOT unique per istance, EG, if you have 4x queen of hearts, they will all have the same ID
         std::string name;
         std::string parentName;
         AttrCont attributes;
@@ -104,7 +113,7 @@ class Phase {
 
 class Game {
     public:
-        Game() : winner(-1), currentPlayerIndex(0) {}
+        Game() : winner(-1), currentPlayerIndex(0), m_currentCardUUID(1) {}
         int ID;
         std::string name;
         AttrCont attributeCont;
@@ -121,7 +130,12 @@ class Game {
         void Print();
 
         vector<Card> get_cards_of_type(string type);
+
+        int m_currentCardUUID;
+
+        Card GenerateCard(string name);
 };
+
 }
 
 #endif // !GAME_H

@@ -460,6 +460,18 @@ void Program::compile_expression(Expression expr)
 		{
 			typeCode.data |= PRIVATE_STACK_TC;
 		}
+		else if (type == "flatvisiblestack")
+		{
+			typeCode.data |= FLAT_VISIBLE_STACK_TC;
+		}
+		else if (type == "flathiddenstack")
+		{
+			typeCode.data |= FLAT_HIDDEN_STACK_TC;
+		}
+		else if (type == "flatprivatestack")
+		{
+			typeCode.data |= FLAT_PRIVATE_STACK_TC;
+		}
 		else if (type == "card")
 		{
 			typeCode.data |= CARD_TC;
@@ -790,7 +802,7 @@ int Program::run(Opcode code, bool load)
 		vector<Card> cardsTaken;
 		for (int i = 0; i < move_amount; i++)
 		{
-			cardsTaken.push_back(matching_cards[rand() % matching_cards.size()]);
+			cardsTaken.push_back(m_game.GenerateCard(matching_cards[rand() % matching_cards.size()].name));
 		}
 
 		if (destination_opcode_type == OpcodeType::STACK_DEST_TOP)
@@ -878,7 +890,7 @@ int Program::run(Opcode code, bool load)
 
 		for (Card c : cardsTaken)
 		{
-			forCallbackReport_cardsTaken.push_back(c.ID);
+			forCallbackReport_cardsTaken.push_back(c.UUID);
 		}
 
 		call_stack_move_callback(
@@ -929,6 +941,18 @@ int Program::run(Opcode code, bool load)
 			else if (typeCode == PRIVATE_STACK_TC)
 			{
 				newStack.t = StackType::PRIVATE;
+			}
+			else if (typeCode == FLAT_VISIBLE_STACK_TC)
+			{
+				newStack.t = StackType::FLAT_VISIBLE;
+			}
+			else if (typeCode == FLAT_HIDDEN_STACK_TC)
+			{
+				newStack.t = StackType::FLAT_HIDDEN;
+			}
+			else if (typeCode == FLAT_PRIVATE_STACK_TC)
+			{
+				newStack.t = StackType::FLAT_PRIVATE;
 			}
 			
 			newStack.ID = m_game.stacks.size();
@@ -1436,6 +1460,12 @@ AttributeType Program::s_type_code_to_attribute_type(TYPE_CODE_T t)
 	case HIDDEN_STACK_TC:
 		return AttributeType::STACK_REF;
 	case PRIVATE_STACK_TC:
+		return AttributeType::STACK_REF;
+	case FLAT_VISIBLE_STACK_TC:
+		return AttributeType::STACK_REF;
+	case FLAT_HIDDEN_STACK_TC:
+		return AttributeType::STACK_REF;
+	case FLAT_PRIVATE_STACK_TC:
 		return AttributeType::STACK_REF;
 	case CARD_TC:
 		return AttributeType::CARD_REF;

@@ -10,6 +10,16 @@ namespace Battler {
         this->attributes.Store("ownerID", ownerIDAttr);
     }
 
+    Card Game::GenerateCard(string name)
+    {
+        Card c = cards[name];
+        c.UUID = m_currentCardUUID;
+
+        m_currentCardUUID += 1;
+
+        return c;
+    }
+
     vector<Card> Game::get_cards_of_type(string type)
     {
         vector<Card> matching_cards;

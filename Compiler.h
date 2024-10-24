@@ -90,19 +90,24 @@ namespace Battler {
 	const TYPE_CODE_T INT_TC = 0x02;
 	const TYPE_CODE_T BOOL_TC = 0x03;
 	const TYPE_CODE_T FLOAT_TC = 0x04;
+	
 	const TYPE_CODE_T VISIBLE_STACK_TC = 0x05;
 	const TYPE_CODE_T HIDDEN_STACK_TC = 0x06;
 	const TYPE_CODE_T PRIVATE_STACK_TC = 0x07;
-	const TYPE_CODE_T CARD_TC = 0x08;
-	const TYPE_CODE_T STACK_REF = 0x09;
-	const TYPE_CODE_T PLAYER_REF_TC = 0x10;
+	const TYPE_CODE_T FLAT_VISIBLE_STACK_TC = 0x08;
+	const TYPE_CODE_T FLAT_HIDDEN_STACK_TC = 0x09;
+	const TYPE_CODE_T FLAT_PRIVATE_STACK_TC = 0x0A;
+
+	const TYPE_CODE_T CARD_TC = 0x0B;
+	const TYPE_CODE_T STACK_REF = 0x0C;
+	const TYPE_CODE_T PLAYER_REF_TC = 0x0D;
 
 	typedef void(stack_move_callback_fun)(
 		int from,
 		int to,
 		bool from_top,
 		bool to_top,
-		const int* cardIds,
+		const int* cardUUIDs,
 		int nCards,
 		void* data
 		);
