@@ -8,19 +8,19 @@ namespace Battler {
     public:
         Token t;
         std::string reason;
-        UnexpectedTokenException(Token t, std::string reason) : t{ t }, reason{ reason } {}
+        UnexpectedTokenException(Token t, std::string reason) : t( t ), reason(reason) {}
     };
 
     class NoNameException {
     public:
         std::string name;
-        NoNameException(std::string name) : name{ name } {}
+        NoNameException(std::string name) : name( name ) {}
     };
 
     class NameRedeclaredException {
     public:
         std::string name;
-        NameRedeclaredException(std::string name) : name{ name } {}
+        NameRedeclaredException(std::string name) : name(name) {}
     };
 
     void ensureNoEOF(const std::vector<Token>::iterator t, const std::vector<Token>::iterator end);

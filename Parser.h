@@ -7,7 +7,7 @@
 #include <cassert>
 
 namespace Battler {
-	enum class TokenType {
+	enum TokenType {
 		assignment,
 		equality,
 		plus,

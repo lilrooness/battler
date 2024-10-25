@@ -73,10 +73,9 @@ namespace Battler {
         std::vector<Token> tokens;
         std::vector<Expression> children;
         Expression() {}
-        Expression(ExpressionType type, std::vector<Token> tokens) : type{ type }, tokens{ tokens } {}
+        Expression(ExpressionType type_in, std::vector<Token> tokens_in) : type( type_in ), tokens(tokens_in) {}
     };
 
-    Expression GetExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end);
     ExpressionType GetExpressionTypeFromOperatorTokenType(TokenType type);
     std::vector<Token> GetIdentifierTokens(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end);
     std::vector<Expression> GetBlock(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end);
