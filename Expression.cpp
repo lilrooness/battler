@@ -394,7 +394,7 @@ namespace Battler {
     }
 
     Expression GetPlayersExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end) {
-        Expression expr(ExpressionType::PLAYERS_DECLARATION, { *current });
+        Expression expr(ExpressionType::PLAYERS_DECLARATION, {*current});
 
         ensureNoEOF(++current, end);
 

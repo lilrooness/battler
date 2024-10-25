@@ -17,7 +17,7 @@ namespace Battler {
 		std::string::iterator end
 	) {
 
-		assert(begin != end, "begin does not equal end");
+		assert(begin != end);
 
 		Token t;
 

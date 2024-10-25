@@ -37,7 +37,8 @@ void Program::Compile(vector<string> lines)
 		}
 	}
 
-	m_rootExpression = GetExpression(m_tokens.begin(), m_tokens.end());
+    auto tokens_begin = m_tokens.begin();
+	m_rootExpression = GetExpression(tokens_begin, m_tokens.end());
 	compile_expression(m_rootExpression);
 }
 
