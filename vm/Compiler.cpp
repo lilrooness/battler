@@ -337,6 +337,30 @@ void Program::compile_expression(Expression expr)
 			compile_name(targetStackExpr.children[0].tokens, NAME_IS_RVALUE);
 			factor_expression(targetStackExpr.children[1]);
 		}
+        else if (sourceStackExpr.type == ExpressionType::STACK_MOVE_CHOOSE_SOURCE)
+        {
+            Opcode sourceOpcode, gatherOpcode, destOpcode;
+            
+            if (expr.type == ExpressionType::STACK_MOVE)
+            {
+                destOpcode.type = OpcodeType::STACK_DEST_TOP;
+            }
+            else
+            {
+                destOpcode.type = OpcodeType::STACK_DEST_BOTTOM;
+            }
+
+            sourceOpcode.type = OpcodeType::STACK_SOURCE_CHOOSE;
+            
+            gatherOpcode.type = OpcodeType::STACK_SOURCE_CHOICE_GATHER;
+            
+            m_opcodes.push_back(sourceOpcode);
+            compile_name(sourceStackExpr.tokens, NAME_IS_LVALUE);
+            m_opcodes.push_back(destOpcode);
+            compile_name(targetStackExpr.children[0].tokens, NAME_IS_RVALUE);
+            factor_expression(targetStackExpr.children[1]);
+            m_opcodes.push_back(gatherOpcode);
+        }
 		else if (sourceStackExpr.type == ExpressionType::STACK_MOVE_SOURCE)
 		{
 			Opcode sourceOpcode;
@@ -359,11 +383,7 @@ void Program::compile_expression(Expression expr)
 			{
 				sourceOpcode.type = OpcodeType::STACK_SOURCE_BOTTOM;
 			}
-			else if (targetStackExpr.type == ExpressionType::STACK_SOURCE_CHOOSE)
-			{
-				sourceOpcode.type = OpcodeType::STACK_SOURCE_CHOOSE;
-			}
-
+            
 			m_opcodes.push_back(sourceOpcode);
 			compile_name(sourceStackExpr.tokens, NAME_IS_LVALUE);
 			m_opcodes.push_back(destOpcode);
@@ -500,15 +520,20 @@ void Program::compile_expression(Expression expr)
 int Program::Run(bool load)
 {
 	
-	while (m_game.winner == -1 && m_current_opcode_index < m_opcodes.size())
+	while (!m_waitingForUserInteraction && m_game.winner == -1 && m_current_opcode_index < m_opcodes.size())
 	{
 		Opcode code = m_opcodes[m_current_opcode_index];
-		if (run(code, load) == -1)
+		if (run(code, load) == RUN_ERROR)
 		{
-			return -1;
+			return RUN_ERROR;
 		}
 	}
-	return 0;
+    if (m_waitingForUserInteraction)
+    {
+        return RUN_WAITING_FOR_INTERACTION_RETURN;
+    }
+    
+	return RUN_FINISHED;
 }
 
 int Program::RunSetup()
@@ -535,31 +560,41 @@ int Program::RunSetup()
 	return 0;
 }
 
-int Program::RunTurn()
+int Program::RunTurn(bool resume/*=false*/)
 {
 	bool done = false;
-	int depth_store = m_depth;
-
-	AttrCont currentPlayerAttrCont;
+    
+    AttrCont currentPlayerAttrCont;
     Attr currentPlayerAttr;
     currentPlayerAttr.type = AttributeType::PLAYER_REF;
     currentPlayerAttr.playerRef = m_game.currentPlayerIndex;
     currentPlayerAttrCont.Store("currentPlayer", currentPlayerAttr);
-
-	locale_stack().push_back(currentPlayerAttrCont);
-	
-	m_current_opcode_index = m_turn_index;
+    
+    if (!resume)
+    {
+        m_depth_store = m_depth;
+        
+        locale_stack().push_back(currentPlayerAttrCont);
+        
+        m_current_opcode_index = m_turn_index;
+    }
 
 	while (!done)
 	{
 		Opcode code = m_opcodes[m_current_opcode_index];
 
-		if (run(code, false) == -1)
+        int runReturn = run(code, false);
+        
+		if (runReturn == RUN_ERROR)
 		{
-			return -1;
+			return RUN_ERROR;
 		}
+        else if (runReturn == RUN_WAITING_FOR_INTERACTION_RETURN)
+        {
+            return RUN_WAITING_FOR_INTERACTION_RETURN;
+        }
 
-		if (code.type == OpcodeType::BLK_END && m_depth == depth_store)
+		if (code.type == OpcodeType::BLK_END && m_depth == m_depth_store)
 		{
 			done = true;
 		}
@@ -782,6 +817,104 @@ int Program::run(Opcode code, bool load)
 		
 		m_current_opcode_index = m_phase_indexes[block_name];
 	}
+    else if (code.type == OpcodeType::STACK_SOURCE_CHOOSE)
+    {
+        m_current_opcode_index++;
+        vector<string> source_name;
+        read_name(source_name, m_opcodes[m_current_opcode_index].type);
+
+        auto destination_opcode_type = m_opcodes[m_current_opcode_index].type;
+        m_current_opcode_index++;
+
+        vector<string> dest_name;
+        read_name(dest_name, m_opcodes[m_current_opcode_index].type);
+        int move_amount = resolve_number_expression();
+        
+        
+
+        Stack* source = get_stack_ptr(source_name);
+        Stack* dst = get_stack_ptr(dest_name);
+        
+        move_amount = std::min(move_amount, (int)source->cards.size());
+        
+        bool topDest = destination_opcode_type == OpcodeType::STACK_DEST_TOP;
+        
+        CardInputWait waitStruct;
+        waitStruct.nExpected = move_amount;
+        waitStruct.cardsToMove = {};
+        waitStruct.srcStackID = source->ID;
+        waitStruct.dstStackID = dst->ID;
+        waitStruct.dstTop = topDest;
+        m_card_input_wait = waitStruct;
+        
+        if (move_amount > 0)
+        {
+            m_waitingForUserInteraction = true;
+            return RUN_WAITING_FOR_INTERACTION_RETURN;
+        }
+    }
+    else if (code.type == OpcodeType::STACK_SOURCE_CHOICE_GATHER)
+    {
+        int forCallbackReport_src = m_card_input_wait.srcStackID;
+        int forCallbackReport_dst = m_card_input_wait.dstStackID;
+        bool forCallbackReport_destTop = m_card_input_wait.dstTop;
+        
+        Stack* src = &m_game.stacks[m_card_input_wait.srcStackID];
+        Stack* dst = &m_game.stacks[m_card_input_wait.dstStackID];
+
+        if (m_card_input_wait.dstTop)
+        {
+            forCallbackReport_destTop = true;
+            dst->cards.insert(
+                dst->cards.end(),
+                m_card_input_wait.cardsToMove.begin(),
+                m_card_input_wait.cardsToMove.end()
+            );
+        }
+        else
+        {
+            forCallbackReport_destTop = false;
+            dst->cards.insert(
+                dst->cards.begin(),
+                m_card_input_wait.cardsToMove.begin(),
+                m_card_input_wait.cardsToMove.end()
+            );
+        }
+        
+        std::vector<int> cardsTakenForCallbackReport;
+        
+        for(Card c : m_card_input_wait.cardsToMove)
+        {
+            auto cardIt = std::find_if(
+                src->cards.begin(),
+                src->cards.end(),
+                [&c](const Card& b) {return c.UUID == b.UUID;}
+            );
+            
+            if (cardIt == src->cards.end())
+            {
+                throw VMError("Irreconsilable Error. Player has picked a card to move, that isn't available in the source stack.");
+            }
+            
+            src->cards.erase(cardIt);
+            
+            cardsTakenForCallbackReport.push_back(c.UUID);
+        }
+        
+        call_stack_move_callback(
+            forCallbackReport_src,
+            forCallbackReport_dst,
+            false,
+            forCallbackReport_destTop,
+            cardsTakenForCallbackReport.data(),
+            (int)cardsTakenForCallbackReport.size()
+        );
+        
+        m_card_input_wait = CardInputWait();
+        
+        m_current_opcode_index++;
+
+    }
 	else if (code.type == OpcodeType::STACK_SOURCE_RANDOM_CARD_TYPE)
 	{
 		m_current_opcode_index++;
@@ -990,7 +1123,7 @@ int Program::run(Opcode code, bool load)
 
 		if (code.type == OpcodeType::R_VALUE)
 		{
-			throw ("Cannot assign from an rvalue reference yet");
+			throw VMError("Cannot assign from an rvalue reference yet");
 		}
 		else if (attrPtr->type == AttributeType::INT)
 		{
@@ -1853,6 +1986,33 @@ void Program::call_stack_move_callback(int from, int to, bool fromTop, bool toTo
 	{
 		m_stack_move_callback(from, to, fromTop, toTop, cardIds, nCards, m_stack_callback_data);
 	}
+}
+
+/*
+ Returns false if no more cards are required
+ */
+bool Program::AddCardToWaitingInput(Card c)
+{
+    if (!m_waitingForUserInteraction)
+    {
+        return false;
+    }
+    
+    if(m_card_input_wait.cardsToMove.size() >= m_card_input_wait.nExpected )
+    {
+        // we shouldn't get here, but deal with it anyway
+        m_waitingForUserInteraction = false;
+        return false;
+    }
+    
+    m_card_input_wait.cardsToMove.push_back(c);
+    
+    if(m_card_input_wait.cardsToMove.size() >= m_card_input_wait.nExpected )
+    {
+        m_waitingForUserInteraction = false;
+    }
+    
+    return m_waitingForUserInteraction;
 }
 
 }

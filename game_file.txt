@@ -5,9 +5,6 @@
 
 game TestGame start
 
-
-
-
     visiblestack InPlay
     
     # a hidden stack
@@ -65,6 +62,8 @@ game TestGame start
     # move cards between stacks
     Draw -> InPlay top 2
 
+    # BUG we shouldn't need the top/bottom here as it's meaningless in a choose scenario
+    # choose Draw -> InPlay top 2
 
     # a setup block, run once at the beggining of the game
     setup start
