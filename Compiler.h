@@ -134,7 +134,7 @@ namespace Battler {
 		void SetStackMoveCallbackFun(stack_move_callback_fun* fun, void* data);
 
 		vector<Opcode> opcodes();
-		Game game();
+		Game& game();
 
 	private:
 		//compiled data

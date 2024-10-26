@@ -1439,7 +1439,7 @@ float Program::resolve_float_expression()
 	throw VMError("Cannot yet resolve float expressions");
 }
 
-Game Program::game()
+Game& Program::game()
 {
 	return m_game;
 }

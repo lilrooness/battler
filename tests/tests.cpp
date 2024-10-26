@@ -48,32 +48,32 @@ TEST(BasicGame, EndToEndTests)
     auto cards = p.game().cards;
     
     auto parentCardIt = cards.find("Parent");
-    EXPECT_NE(parentCardIt, p.game().cards.end());
+    EXPECT_NE(parentCardIt, cards.end());
     
     auto childCardIt = cards.find("Child");
-    EXPECT_NE(childCardIt, p.game().cards.end());
+    EXPECT_NE(childCardIt, cards.end());
     
-    Battler::Card* parent = &parentCardIt->second;
-    Battler::Card* child = &childCardIt->second;
+    Battler::Card parent = parentCardIt->second;
+    Battler::Card child = childCardIt->second;
     
-    EXPECT_EQ(parent->name, "Parent");
-    EXPECT_TRUE(parent->attributes.Contains("health"));
-    EXPECT_TRUE(parent->attributes.Contains("attack"));
-    EXPECT_FALSE(parent->attributes.Contains("defence"));
-    EXPECT_EQ(parent->attributes.Get("health").i, 0);
-    EXPECT_EQ(parent->attributes.Get("attack").i, 0);
-    EXPECT_EQ(parent->ID, 0);
-    EXPECT_EQ(parent->UUID, -1);
+    EXPECT_EQ(parent.name, "Parent");
+    EXPECT_TRUE(parent.attributes.Contains("health"));
+    EXPECT_TRUE(parent.attributes.Contains("attack"));
+    EXPECT_FALSE(parent.attributes.Contains("defence"));
+    EXPECT_EQ(parent.attributes.Get("health").i, 0);
+    EXPECT_EQ(parent.attributes.Get("attack").i, 0);
+    EXPECT_EQ(parent.ID, 0);
+    EXPECT_EQ(parent.UUID, -1);
     
-    EXPECT_EQ(child->name, "Child");
-    EXPECT_TRUE(child->attributes.Contains("health"));
-    EXPECT_TRUE(child->attributes.Contains("attack"));
-    EXPECT_TRUE(child->attributes.Contains("defence"));
-    EXPECT_EQ(child->attributes.Get("health").i, 15);
-    EXPECT_EQ(child->attributes.Get("attack").i, 0);
-    EXPECT_EQ(child->attributes.Get("defence").i, 0);
-    EXPECT_EQ(child->ID, 1);
-    EXPECT_EQ(parent->UUID, -1);
+    EXPECT_EQ(child.name, "Child");
+    EXPECT_TRUE(child.attributes.Contains("health"));
+    EXPECT_TRUE(child.attributes.Contains("attack"));
+    EXPECT_TRUE(child.attributes.Contains("defence"));
+    EXPECT_EQ(child.attributes.Get("health").i, 15);
+    EXPECT_EQ(child.attributes.Get("attack").i, 0);
+    EXPECT_EQ(child.attributes.Get("defence").i, 0);
+    EXPECT_EQ(child.ID, 1);
+    EXPECT_EQ(parent.UUID, -1);
     
     p.RunSetup();
     EXPECT_EQ(p.game().stacks[0].cards.size(), 1);
