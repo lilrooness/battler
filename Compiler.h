@@ -19,6 +19,9 @@ using std::tuple;
 
 namespace Battler {
 
+const int RUN_ERROR = -1;
+const int RUN_FINISHED = 0;
+const int RUN_WAITING_FOR_INTERACTION_RETURN = 1;
 
 	enum class OpcodeType
 	{
@@ -53,6 +56,7 @@ namespace Battler {
 		STACK_SOURCE_TOP,
 		STACK_SOURCE_BOTTOM,
 		STACK_SOURCE_CHOOSE,
+        STACK_SOURCE_CHOICE_GATHER,
 		STACK_DEST_TOP,
 		STACK_DEST_BOTTOM,
 
@@ -121,6 +125,15 @@ namespace Battler {
 		uint64_t data;
 	};
 
+    typedef struct
+    {
+        int srcStackID;
+        int dstStackID;
+        int nExpected;
+        bool dstTop;
+        std::vector<Card> cardsToMove;
+    } CardInputWait;
+
 	class Program
 	{
 	public:
@@ -128,10 +141,13 @@ namespace Battler {
 		void Compile(vector<string>);
 		int Run(bool load = false);
 		int RunSetup();
-		int RunTurn();
+		int RunTurn(bool resume=false);
 		vector<AttrCont>& locale_stack();
+        bool m_waitingForUserInteraction{false};
+        CardInputWait m_card_input_wait;
 
 		void SetStackMoveCallbackFun(stack_move_callback_fun* fun, void* data);
+        bool AddCardToWaitingInput(Card c);
 
 		vector<Opcode> opcodes();
 		Game& game();
@@ -150,6 +166,7 @@ namespace Battler {
 		int m_setup_index;
 		int m_turn_index;
 		int m_depth;
+        int m_depth_store;
 		unordered_map<string, int> m_phase_indexes;
 
 		//runtime data

@@ -67,6 +67,7 @@ int main(int argc, char* argv[]) {
         
         while (program.game().winner == -1)
         {
+            cout << "running player " << program.game().currentPlayerIndex << "'s turn" << endl;
             program.RunTurn();
         }
         

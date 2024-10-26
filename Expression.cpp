@@ -236,6 +236,13 @@ namespace Battler {
             expr.type = ExpressionType::STACK_MOVE_RANDOM_SOURCE;
             return expr;
         }
+        
+        if (current->text == "choose") {
+            ensureNoEOF(++current, end);
+            expr.tokens = GetIdentifierTokens(current, end);;
+            expr.type = ExpressionType::STACK_MOVE_CHOOSE_SOURCE;
+            return expr;
+        }
 
         expr.type = ExpressionType::STACK_MOVE_SOURCE;
         expr.tokens = GetIdentifierTokens(current, end);
@@ -253,17 +260,14 @@ namespace Battler {
         ensureNoEOF(++current, end);
         ensureTokenType(TokenType::name, *current, "Expected one of 'choose', 'top' or 'bottom' here");
 
-        if (current->text == "choose") {
-            expr.type = ExpressionType::STACK_SOURCE_CHOOSE;
-        }
-        else if (current->text == "top") {
+        if (current->text == "top") {
             expr.type = ExpressionType::STACK_SOURCE_TOP;
         }
         else if (current->text == "bottom") {
             expr.type = ExpressionType::STACK_SOURCE_BOTTOM;
         }
         else {
-            throw UnexpectedTokenException(*current, "Expected one of 'choose', 'top' or 'bottom' here");
+            throw UnexpectedTokenException(*current, "Expected one of 'top' or 'bottom' here");
         }
         expr.tokens.push_back(*current);
 
@@ -450,6 +454,7 @@ namespace Battler {
                 // these keywords are part of larger expressions and should be accumulated before evaluation
                 // (this allows them not to be immediately evauated as an attribute declaration, even if `random StacName ...` looks like one)
                 else if (current->text == "random") {}
+                else if (current->text == "choose") {}
                 else if ((current + 1) != end && (current + 1)->type == TokenType::name) {
                     return GetAttrDeclarationExpression(current, end);
                 }
