@@ -7,7 +7,7 @@
 #include "../vm/game.h"
 #include "../interpreter_errors.h"
 
-TEST(BasicGame, EndToEndTests)
+TEST(EndToEndTests, BasicGame)
 {
     auto lines = std::vector<std::string>() = {
         "game Test start",
@@ -87,7 +87,7 @@ TEST(BasicGame, EndToEndTests)
 }
 
 
-TEST(ChooseMoveInstr, EndToEndTests)
+TEST(EndToEndTests, ChooseMoveInstr)
 {
     auto lines = std::vector<std::string>() = {
         "game Test start",
