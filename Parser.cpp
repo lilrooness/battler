@@ -72,7 +72,20 @@ namespace Battler {
 			return make_pair(t, begin + 1);
 		}
 		else if (*begin == '/') {
-			t.text.push_back('/');
+            t.text.push_back('/');
+
+            if (begin + 1 != end && *(begin + 1) == '>') {
+                t.text.push_back('>');
+
+                if (begin + 2 != end && *(begin + 2) == '_') {
+                    t.text.push_back('_');
+                    t.type = TokenType::cut_under;
+                    return make_pair(t, begin + 3);
+                }
+                
+                t.type = TokenType::cut;
+                return make_pair(t, begin + 2);
+            }
 			t.type = TokenType::divide;
 			return make_pair(t, begin + 1);
 		}

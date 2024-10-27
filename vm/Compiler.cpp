@@ -10,33 +10,37 @@ vector<Opcode> Program::opcodes()
 	return m_opcodes;
 }
 
+void Program::_Parse(vector<string> lines)
+{
+    for (std::string line : lines)
+    {
+        auto start = line.begin();
+        auto end = line.end();
+
+        while (start != end) {
+
+            auto resPair = getNextToken(start, end);
+            Token t = resPair.first;
+
+            if (t.type == TokenType::comment) {
+                break;
+            }
+
+            if (t.type != TokenType::space) {
+
+                t.l = (int) lines.size();
+                t.c = (int) std::distance(line.begin(), start);
+                m_tokens.push_back(std::move(t));
+            }
+
+            start = resPair.second;
+        }
+    }
+}
+
 void Program::Compile(vector<string> lines)
 {
-	for (std::string line : lines)
-	{
-		auto start = line.begin();
-		auto end = line.end();
-
-		while (start != end) {
-
-			auto resPair = getNextToken(start, end);
-			Token t = resPair.first;
-
-			if (t.type == TokenType::comment) {
-				break;
-			}
-
-			if (t.type != TokenType::space) {
-
-				t.l = lines.size();
-				t.c = std::distance(line.begin(), start);
-				m_tokens.push_back(std::move(t));
-			}
-
-			start = resPair.second;
-		}
-	}
-
+    _Parse(lines);
     auto tokens_begin = m_tokens.begin();
 	m_rootExpression = GetExpression(tokens_begin, m_tokens.end());
 	compile_expression(m_rootExpression);
@@ -59,7 +63,7 @@ void Program::compile_name(vector<Token> tokens, bool lvalue)
 			code.type = OpcodeType::R_VALUE_REF;
 		}
 		
-		DATA_IX_T string_index = m_strings.size();
+		DATA_IX_T string_index = (DATA_IX_T) m_strings.size();
 		m_strings.push_back(tokens[0].text);
 		code.data |= STRING_TC;
 		code.data |= ((OPCODE_CONV_T)string_index << 32);
@@ -82,7 +86,7 @@ void Program::compile_name(vector<Token> tokens, bool lvalue)
 					code.type = OpcodeType::R_VALUE_DOT_SEPERATED_REF_CHAIN;
 				}
 
-				DATA_IX_T string_index = m_strings.size();
+				DATA_IX_T string_index = (DATA_IX_T) m_strings.size();
 				m_strings.push_back(token.text);
 				code.data |= STRING_TC;
 				code.data |= ((OPCODE_CONV_T)string_index << 32);
@@ -103,7 +107,7 @@ void Program::factor_expression(Expression expr)
 		{
 			Opcode code;
 			code.type = OpcodeType::R_VALUE;
-			DATA_IX_T int_index = m_ints.size();
+			DATA_IX_T int_index = (DATA_IX_T) m_ints.size();
 			m_ints.push_back(stoi(expr.tokens[0].text));
 			code.data |= INT_TC;
 			code.data |= ((OPCODE_CONV_T)int_index << 32);
@@ -113,7 +117,7 @@ void Program::factor_expression(Expression expr)
 		{
 			Opcode code;
 			code.type = OpcodeType::R_VALUE;
-			DATA_IX_T bool_index = m_bools.size();
+			DATA_IX_T bool_index = (DATA_IX_T) m_bools.size();
 			m_bools.push_back(expr.tokens[0].text == "true");
 			code.data |= BOOL_TC;
 			code.data |= ((OPCODE_CONV_T)bool_index << 32);
@@ -173,7 +177,7 @@ void Program::compile_expression(Expression expr)
 	{
 		auto nameDecl = expr.children.back();
 		
-		DATA_IX_T name_index = m_strings.size();
+		DATA_IX_T name_index = (DATA_IX_T) m_strings.size();
 		this->m_strings.push_back(nameDecl.tokens[0].text);
 
 		Opcode start;
@@ -198,7 +202,7 @@ void Program::compile_expression(Expression expr)
 		end.type = OpcodeType::BLK_END;
 		
 		m_opcodes.push_back(start);
-		m_setup_index = m_opcodes.size()-1;
+		m_setup_index = (int) m_opcodes.size()-1;
 		for (auto e : expr.children)
 		{
 			compile_expression(e);
@@ -213,7 +217,7 @@ void Program::compile_expression(Expression expr)
 		end.type = OpcodeType::BLK_END;
 
 		m_opcodes.push_back(start);
-		m_turn_index = m_opcodes.size()-1;
+		m_turn_index = (int) m_opcodes.size()-1;
 		for (auto e : expr.children)
 		{
 			compile_expression(e);
@@ -228,13 +232,13 @@ void Program::compile_expression(Expression expr)
 		end.type = OpcodeType::BLK_END;
 
 		string phase_name = expr.tokens[0].text;
-		DATA_IX_T phase_name_index = m_strings.size();
+		DATA_IX_T phase_name_index = (DATA_IX_T) m_strings.size();
 		m_strings.push_back(phase_name);
 		start.data |= STRING_TC;
 		start.data |= ((OPCODE_CONV_T)phase_name_index << 32);
 
 		m_opcodes.push_back(start);
-		m_phase_indexes[phase_name] = m_opcodes.size()-1;
+		m_phase_indexes[phase_name] = (int) m_opcodes.size()-1;
 		for (auto e : expr.children)
 		{
 			compile_expression(e);
@@ -247,7 +251,7 @@ void Program::compile_expression(Expression expr)
 		code.type = OpcodeType::DO_DECL;
 		
 		string phase_name = expr.tokens[1].text;
-		DATA_IX_T phase_name_index = m_strings.size();
+		DATA_IX_T phase_name_index = (DATA_IX_T) m_strings.size();
 		m_strings.push_back(phase_name);
 		code.data |= STRING_TC;
 		code.data |= ((OPCODE_CONV_T)phase_name_index << 32);
@@ -299,7 +303,7 @@ void Program::compile_expression(Expression expr)
 		forEachHeaderCode.type = OpcodeType::FOREACHPLAYER_BLK_HEADER;
 		end.type = OpcodeType::FOREACHPLAYER_BLK_END;
 
-		DATA_IX_T string_index = m_strings.size();
+		DATA_IX_T string_index = (DATA_IX_T) m_strings.size();
 		m_strings.push_back(eachPlayerLoopVarName);
 		forEachHeaderCode.data |= STRING_TC;
 		forEachHeaderCode.data |= ((OPCODE_CONV_T)string_index << 32);
@@ -311,6 +315,65 @@ void Program::compile_expression(Expression expr)
 		}
 		m_opcodes.push_back(end);
 	}
+    else if (expr.type == ExpressionType::STACK_CUT || expr.type == ExpressionType::STACK_CUT_UNDER)
+    {
+        auto sourceStackExpr = expr.children[0];
+        auto targetStackExpr = expr.children[1];
+        
+        if (sourceStackExpr.type == ExpressionType::STACK_CUT_SOURCE)
+        {
+            Opcode sourceOpcode;
+            Opcode destinationOpcode;
+            
+            sourceOpcode.type = OpcodeType::STACK_CUT_SOURCE;
+            if (expr.type == ExpressionType::STACK_CUT)
+            {
+                destinationOpcode.type = OpcodeType::STACK_CUT_DEST_TOP;
+            }
+            else if (expr.type == ExpressionType::STACK_CUT_UNDER)
+            {
+                destinationOpcode.type = OpcodeType::STACK_CUT_DEST_BOTTOM;
+            }
+            
+            if (targetStackExpr.type == ExpressionType::STACK_CUT_SOURCE_TOP)
+            {
+                sourceOpcode.type = OpcodeType::STACK_CUT_SOURCE_TOP;
+            }
+            else if (targetStackExpr.type == ExpressionType::STACK_CUT_SOURCE_BOTTOM)
+            {
+                sourceOpcode.type = OpcodeType::STACK_CUT_SOURCE_BOTTOM;
+            }
+            
+            m_opcodes.push_back(sourceOpcode);
+            compile_name(sourceStackExpr.tokens, NAME_IS_LVALUE);
+            m_opcodes.push_back(destinationOpcode);
+            compile_name(targetStackExpr.children[0].tokens, NAME_IS_RVALUE);
+            factor_expression(targetStackExpr.children[1]);
+        }
+        else if (sourceStackExpr.type == ExpressionType::STACK_CUT_CHOOSE_SOURCE)
+        {
+            Opcode sourceOpcode, gatherOpcode, destinationOpcode;
+            
+            sourceOpcode.type = OpcodeType::STACK_CUT_SOURCE_CHOOSE;
+            if (expr.type == ExpressionType::STACK_CUT)
+            {
+                destinationOpcode.type = OpcodeType::STACK_CUT_DEST_TOP;
+            }
+            else if (expr.type == ExpressionType::STACK_CUT_UNDER)
+            {
+                destinationOpcode.type = OpcodeType::STACK_CUT_DEST_BOTTOM;
+            }
+
+            gatherOpcode.type = OpcodeType::STACK_CUT_SOURCE_CHOICE_GATHER;
+            
+            m_opcodes.push_back(sourceOpcode);
+            compile_name(sourceStackExpr.tokens, NAME_IS_LVALUE);
+            m_opcodes.push_back(destinationOpcode);
+            compile_name(targetStackExpr.children[0].tokens, NAME_IS_RVALUE);
+
+            m_opcodes.push_back(gatherOpcode);
+        }
+    }
 	else if (expr.type == ExpressionType::STACK_MOVE || expr.type == ExpressionType::STACK_MOVE_UNDER)
 	{
 		auto sourceStackExpr = expr.children[0];
@@ -419,7 +482,7 @@ void Program::compile_expression(Expression expr)
 			name = ss.str();
 		}
 
-		DATA_IX_T name_index = m_strings.size();
+		DATA_IX_T name_index = (DATA_IX_T) m_strings.size();
 		m_strings.push_back(name);
 
 		Opcode code;
@@ -638,7 +701,7 @@ int Program::run(Opcode code, bool load)
 		{
 			Card card;
 			card.attributes = m_locale_stack.back();
-			card.ID = m_game.cards.size();
+			card.ID = (int) m_game.cards.size();
 			// name sequence is NAME:PARENT_NAME or just NAME
 			string nameSequence = m_block_name_stack.back();
 
@@ -670,7 +733,7 @@ int Program::run(Opcode code, bool load)
 		m_proc_mode_stack.pop_back();
 		m_block_name_stack.pop_back();
 		
-	}
+    }
 	else if (code.type == OpcodeType::IF_BLK_HEADER)
 	{
 		m_current_opcode_index++;
@@ -802,7 +865,7 @@ int Program::run(Opcode code, bool load)
 		}
 
 		m_current_opcode_index++;
-	}
+    }
 	else if (code.type == OpcodeType::DO_DECL)
 	{
 		DATA_IX_T name_idx = (code.data & (OPCODE_CONV_T(0xFF) << 32)) >> 32;
@@ -817,6 +880,130 @@ int Program::run(Opcode code, bool load)
 		
 		m_current_opcode_index = m_phase_indexes[block_name];
 	}
+    else if (code.type == OpcodeType::STACK_CUT_SOURCE_TOP || code.type == OpcodeType::STACK_CUT_SOURCE_BOTTOM)
+    {
+        m_current_opcode_index++;
+        vector<string> source_name;
+        read_name(source_name, m_opcodes[m_current_opcode_index].type);
+        
+        auto destination_opcode_type = m_opcodes[m_current_opcode_index].type;
+        m_current_opcode_index++;
+        
+        vector<string> dest_name;
+        read_name(dest_name, m_opcodes[m_current_opcode_index].type);
+        int move_amount = resolve_number_expression();
+        
+        Stack* source = get_stack_ptr(source_name);
+        Stack* dst = get_stack_ptr(dest_name);
+        
+        vector<Card> cardsTaken;
+        move_amount = std::min((int)source->cards.size(), move_amount);
+        
+        if (code.type == OpcodeType::STACK_CUT_SOURCE_TOP)
+        {
+            cardsTaken.insert(cardsTaken.begin(), source->cards.end()-move_amount, source->cards.end());
+            
+            source->cards.erase(source->cards.end()-move_amount, source->cards.end());
+        }
+        else
+        {
+            cardsTaken.insert(cardsTaken.begin(), source->cards.begin(), source->cards.begin()+move_amount);
+            
+            source->cards.erase(source->cards.begin(), source->cards.begin()+move_amount);
+        }
+        
+        if (destination_opcode_type == OpcodeType::STACK_CUT_DEST_TOP)
+        {
+            dst->cards.insert(dst->cards.end(), cardsTaken.begin(), cardsTaken.end());
+        }
+        else
+        {
+            dst->cards.insert(dst->cards.begin(), cardsTaken.begin(), cardsTaken.end());
+        }
+        
+        int forCallbackReport_src = source->ID;
+        int forCallbackReport_dst = dst->ID;
+        bool forCallbackReport_destTop = destination_opcode_type == OpcodeType::STACK_CUT_DEST_TOP;
+        vector<int> forCallbackReport_cardsTaken;
+        for (Card c : cardsTaken)
+        {
+            forCallbackReport_cardsTaken.push_back(c.UUID);
+        }
+        
+        call_stack_move_callback(forCallbackReport_src, forCallbackReport_dst, true, forCallbackReport_destTop, forCallbackReport_cardsTaken.data(), (int)forCallbackReport_cardsTaken.size());
+        
+    }
+    else if (code.type == OpcodeType::STACK_CUT_SOURCE_CHOOSE)
+    {
+        m_current_opcode_index++;
+        vector<string> source_name;
+        read_name(source_name, m_opcodes[m_current_opcode_index].type);
+        
+        auto destination_opcode_type = m_opcodes[m_current_opcode_index].type;
+        m_current_opcode_index++;
+        
+        vector<string> dest_name;
+        read_name(dest_name, m_opcodes[m_current_opcode_index].type);
+        
+        Stack* source = get_stack_ptr(source_name);
+        Stack* dst = get_stack_ptr(dest_name);
+        
+        CardInputWait inputWait;
+        bool topDest = destination_opcode_type == OpcodeType::STACK_CUT_DEST_TOP;
+        inputWait.type = InputOperationType::CUT;
+        inputWait.srcStackID = source->ID;
+        inputWait.dstStackID = dst->ID;
+        inputWait.dstTop = topDest;
+        m_card_input_wait = inputWait;
+        
+        if (source->cards.size() > 0)
+        {
+            m_waitingForUserInteraction = true;
+            return RUN_WAITING_FOR_INTERACTION_RETURN;
+        }
+    }
+    else if (code.type == OpcodeType::STACK_CUT_SOURCE_CHOICE_GATHER)
+    {
+        int forCallbackReport_src = m_card_input_wait.srcStackID;
+        int forCallbackReport_dst = m_card_input_wait.dstStackID;
+        bool forCallbackReport_destTop = m_card_input_wait.dstTop;
+        vector<int> forCallbackReport_cardsTaken;
+        
+        Stack* src = &m_game.stacks[m_card_input_wait.srcStackID];
+        Stack* dst = &m_game.stacks[m_card_input_wait.dstStackID];
+        
+        vector<Card> cardsTaken;
+        for(int i=m_card_input_wait.cutPoint; i<src->cards.size(); i++)
+        {
+            cardsTaken.push_back(src->cards[i]);
+            forCallbackReport_cardsTaken.push_back(src->cards[i].UUID);
+        }
+        
+        if (m_card_input_wait.dstTop)
+        {
+            dst->cards.insert(dst->cards.end(), cardsTaken.begin(), cardsTaken.end());
+        }
+        else
+        {
+            dst->cards.insert(dst->cards.begin(), cardsTaken.begin(), cardsTaken.end());
+        }
+        
+        src->cards.erase(src->cards.begin() + m_card_input_wait.cutPoint, src->cards.end());
+        
+        call_stack_move_callback(
+          forCallbackReport_src,
+          forCallbackReport_dst,
+          true,
+          forCallbackReport_destTop,
+          forCallbackReport_cardsTaken.data(),
+          (int)forCallbackReport_cardsTaken.size()
+        );
+        
+        m_card_input_wait = CardInputWait();
+        
+        m_current_opcode_index ++;
+        
+    }
     else if (code.type == OpcodeType::STACK_SOURCE_CHOOSE)
     {
         m_current_opcode_index++;
@@ -840,6 +1027,7 @@ int Program::run(Opcode code, bool load)
         bool topDest = destination_opcode_type == OpcodeType::STACK_DEST_TOP;
         
         CardInputWait waitStruct;
+        waitStruct.type = InputOperationType::MOVE;
         waitStruct.nExpected = move_amount;
         waitStruct.cardsToMove = {};
         waitStruct.srcStackID = source->ID;
@@ -1033,7 +1221,7 @@ int Program::run(Opcode code, bool load)
 			forCallbackReport_sourceTop,
 			forCallbackReport_destTop,
 			forCallbackReport_cardsTaken.data(),
-			forCallbackReport_cardsTaken.size()
+			(int)forCallbackReport_cardsTaken.size()
 		);
 	}
 	else if (code.type == OpcodeType::ATTR_DECL)
@@ -1062,7 +1250,7 @@ int Program::run(Opcode code, bool load)
 		{
 			
 			Stack newStack;
-			a.stackRef = m_game.stacks.size();
+			a.stackRef = (int) m_game.stacks.size();
 
 			if (typeCode == VISIBLE_STACK_TC)
 			{
@@ -1089,7 +1277,7 @@ int Program::run(Opcode code, bool load)
 				newStack.t = StackType::FLAT_PRIVATE;
 			}
 			
-			newStack.ID = m_game.stacks.size();
+			newStack.ID = (int) m_game.stacks.size();
 			m_game.stacks[a.stackRef] = newStack;
 		}
 

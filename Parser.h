@@ -27,6 +27,8 @@ namespace Battler {
 		dot,
 		move,
 		move_under,
+        cut,
+        cut_under,
 		comment,
 	};
 
