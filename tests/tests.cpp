@@ -242,7 +242,7 @@ TEST(EndToEndTests, ChooseCutTest)
             "end",
         
             "turn start",
-                "choose a /> b top",
+                "choose a /> b",
             "end",
         
         "end"
@@ -278,23 +278,22 @@ TEST(EndToEndTests, ChooseCutTest)
 
 TEST(ParserTest, CutTestChoose)
 {
-    std::string line = "choose a /> b top";
+    std::string line = "choose a /> b";
     
     Battler::Program p;
     p._Parse({line});
     
     auto tokens = p._Tokens();
-    EXPECT_EQ(tokens.size(), 5);
+    EXPECT_EQ(tokens.size(), 4);
     EXPECT_EQ(tokens[0].type, Battler::TokenType::name);
     EXPECT_EQ(tokens[1].type, Battler::TokenType::name);
     EXPECT_EQ(tokens[2].type, Battler::TokenType::cut);
     EXPECT_EQ(tokens[3].type, Battler::TokenType::name);
-    EXPECT_EQ(tokens[4].type, Battler::TokenType::name);
 }
 
 TEST(ExpressionTest, CutTestChoose)
 {
-    std::string line = "choose a /> b top";
+    std::string line = "choose a /> b";
     
     Battler::Program p;
     p._Parse({line});
@@ -309,7 +308,7 @@ TEST(ExpressionTest, CutTestChoose)
 
 TEST(CompilerTest, CutTestChoose)
 {
-    std::string line = "choose a /> b top";
+    std::string line = "choose a /> b";
     
     Battler::Program p;
     p.Compile({line});

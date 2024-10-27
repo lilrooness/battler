@@ -447,6 +447,10 @@ namespace Battler {
             }
             expr.tokens.push_back(*current);
         }
+        else
+        {
+            expr.type = ExpressionType::STACK_CUT_SOURCE_TOP;
+        }
         
         expr.children.push_back(std::move(stackIdentifierExpr));
         
@@ -475,13 +479,17 @@ namespace Battler {
             }
         
             bool requireAmount = true;
+            bool requirePosition = true;
         
-            if (leftExpr.type == ExpressionType::STACK_CUT_CHOOSE_SOURCE) {
+            if (leftExpr.type == ExpressionType::STACK_CUT_CHOOSE_SOURCE)
+            {
                 requireAmount = false;
+                requirePosition = false;
+                
             }
         
             ensureNoEOF(++current, end);
-            bool requirePosition = true;
+            
             auto rightExpr = GetCutMoveTargetExpression(current, end, requirePosition, requireAmount);
 
 
