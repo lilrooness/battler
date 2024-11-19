@@ -13,6 +13,33 @@ namespace Battler {
         }
     }
 
+    std::vector<Token> GetIdentifierTokensFromCommaSeperatedList(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end)
+    {
+        std::vector<Token> tokens;
+
+        while (current != end) {
+
+            ensureTokenType(TokenType::name, *current, "identifiers must be names");
+            tokens.push_back(*current);
+
+            if ((current + 1) != end && (current + 1)->type == TokenType::dot)
+            {
+                current += 2;
+            }
+            else if ((current + 1) != end && (current + 1)->type == TokenType::comma)
+            {
+                current += 1;
+                tokens.push_back(*current);
+                current += 1;
+            }
+            else
+            {
+                return tokens;
+            }
+        }
+        throw UnexpectedTokenException(*(current - 1), "Unexpected end to token stream");
+    }
+
     std::vector<Token> GetIdentifierTokens(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end) {
 
         std::vector<Token> tokens;
@@ -229,22 +256,51 @@ namespace Battler {
 
         Expression expr;
 
+        expr.type = ExpressionType::STACK_MOVE_SOURCE;
+
         if (current->text == "random") {
             ensureNoEOF(++current, end);
-            expr.tokens = GetIdentifierTokens(current, end);;
             expr.type = ExpressionType::STACK_MOVE_RANDOM_SOURCE;
-            return expr;
         }
         
-        if (current->text == "choose") {
+        else if  (current->text == "choose") {
             ensureNoEOF(++current, end);
-            expr.tokens = GetIdentifierTokens(current, end);;
             expr.type = ExpressionType::STACK_MOVE_CHOOSE_SOURCE;
-            return expr;
         }
 
-        expr.type = ExpressionType::STACK_MOVE_SOURCE;
-        expr.tokens = GetIdentifierTokens(current, end);
+        //expr.tokens = GetIdentifierTokens(current, end);
+        
+        std::vector<Token> sourceIdentifers = GetIdentifierTokensFromCommaSeperatedList(current, end);
+
+        bool hasMultipleIdentifiers = false;
+
+        for (Token t : sourceIdentifers)
+        {
+            if (t.type == TokenType::comma)
+            {
+                hasMultipleIdentifiers = true;
+                break;
+            }
+        }
+
+        if (hasMultipleIdentifiers)
+        {
+            if (expr.type == ExpressionType::STACK_MOVE_SOURCE)
+            {
+                expr.type = ExpressionType::STACK_MOVE_SOURCE_MULTI;
+            }
+            else if (expr.type == ExpressionType::STACK_MOVE_CHOOSE_SOURCE)
+            {
+                expr.type = ExpressionType::STACK_MOVE_CHOOSE_SOURCE_MULTI;
+            }
+            else if (expr.type == ExpressionType::STACK_MOVE_RANDOM_SOURCE)
+            {
+                throw UnexpectedTokenException(sourceIdentifers[0], "random moves do not support multiple source identifiers");
+            }
+        }
+
+        expr.tokens = sourceIdentifers;
+
         return expr;
     }
 

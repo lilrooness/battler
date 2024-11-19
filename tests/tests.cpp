@@ -313,4 +313,75 @@ TEST(CompilerTest, CutTestChoose)
     Battler::Program p;
     p.Compile({line});
     std::vector<Battler::Opcode> opcodes = p.opcodes();
+    // TODO: this test isn't tesing anything
+}
+
+TEST(ExpressionTest, MoveFromSelection)
+{
+    std::string line = "a,b -> c top 1";
+
+    Battler::Program p;
+    p._Parse({ line });
+    auto tokens = p._Tokens();
+    auto tokensBegin = tokens.begin();
+    Battler::Expression expr = Battler::GetExpression(tokensBegin, tokens.end());
+
+    EXPECT_EQ(expr.children.size(), 2);
+    EXPECT_EQ(expr.children[0].children.size(), 0);
+    EXPECT_EQ(expr.children[0].type, Battler::ExpressionType::STACK_MOVE_SOURCE_MULTI);
+    EXPECT_EQ(expr.children[1].children.size(), 2);
+    EXPECT_EQ(expr.children[1].children[0].type, Battler::ExpressionType::IDENTIFIER);
+    EXPECT_EQ(expr.children[1].children[1].type, Battler::ExpressionType::FACTOR);
+}
+
+TEST(CompilerTest, MoveFromSelection)
+{
+    std::string line = "a,b -> c top 1";
+
+    Battler::Program p;
+    p.Compile({ line });
+    std::vector<Battler::Opcode> opcodes = p.opcodes();
+
+    // TODO: finish this test
+    ASSERT_EQ(true, false);
+}
+
+TEST(EndToEndTests, MoveFromSelection)
+{
+    auto lines = std::vector<std::string>() = {
+    "game Test start",
+        "players 1"
+        "card Parent start",
+            "int health",
+            "int attack",
+        "end",
+        "card Child Parent start",
+            "health = 15",
+            "int defence",
+        "end",
+
+        "visiblestack a",
+        "visiblestack b",
+
+        "visiblestack c",
+
+        "setup start",
+            "random Parent -> a top 20",
+        "end",
+
+        "turn start",
+            "a,b -> c top 1",
+        "end",
+
+    "end"
+    };
+
+    Battler::Program p;
+    p.Compile(lines);
+    p.Run(true);
+    p.RunSetup();
+    p.RunTurn();
+    EXPECT_TRUE(p.m_waitingForUserInteraction);
+
+    // TODO: finish this test
 }
