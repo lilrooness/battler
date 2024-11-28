@@ -379,7 +379,60 @@ void Program::compile_expression(Expression expr)
 		auto sourceStackExpr = expr.children[0];
 		auto targetStackExpr = expr.children[1];
 
-		if (sourceStackExpr.type == ExpressionType::STACK_MOVE_RANDOM_SOURCE)
+		if (sourceStackExpr.type == ExpressionType::STACK_MOVE_SOURCE_MULTI)
+		{
+			vector<Opcode> sourceOpcodes;
+			Opcode gatherOpcode, destOpcode;
+
+			if (expr.type == ExpressionType::STACK_MOVE)
+			{
+				destOpcode.type = OpcodeType::STACK_DEST_TOP;
+			}
+			else
+			{
+				destOpcode.type = OpcodeType::STACK_DEST_BOTTOM;
+			}
+
+			auto currentToken = sourceStackExpr.tokens.begin();
+			auto tokensEnd = sourceStackExpr.tokens.end();
+
+			vector<vector<Token> > names;
+
+			while (currentToken != tokensEnd)
+			{
+				vector<Token> name;
+
+				do
+				{
+					name.push_back(*currentToken);
+					currentToken++;
+				} while (currentToken != tokensEnd && currentToken->type != TokenType::comma);
+
+				names.push_back(name);
+
+				if (currentToken != tokensEnd && currentToken->type == TokenType::comma)
+				{
+					currentToken++;
+				}
+				else if (currentToken != tokensEnd)
+				{
+					throw CompileError("Unexpected token in a multi-move source list", *currentToken);
+				}
+			}
+			for (auto name : names)
+			{
+				compile_name(name, NAME_IS_LVALUE);
+			}
+
+			//for (Token& t : sourceStackExpr.tokens)
+			//{
+			//	if (t.type == TokenType::name)
+			//	{
+			//		compile_name({ t }, NAME_IS_LVALUE);
+			//	}
+			//}
+		}
+		else if (sourceStackExpr.type == ExpressionType::STACK_MOVE_RANDOM_SOURCE)
 		{
 			Opcode sourceOpcode;
 			Opcode destinationOpcode;
