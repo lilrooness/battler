@@ -334,18 +334,6 @@ TEST(ExpressionTest, MoveFromSelection)
     EXPECT_EQ(expr.children[1].children[1].type, Battler::ExpressionType::FACTOR);
 }
 
-TEST(CompilerTest, MoveFromSelection)
-{
-    std::string line = "a,b -> c top 1";
-
-    Battler::Program p;
-    p.Compile({ line });
-    std::vector<Battler::Opcode> opcodes = p.opcodes();
-
-    // TODO: finish this test
-    ASSERT_EQ(true, false);
-}
-
 TEST(EndToEndTests, MoveFromSelection)
 {
     auto lines = std::vector<std::string>() = {
@@ -362,15 +350,17 @@ TEST(EndToEndTests, MoveFromSelection)
 
         "visiblestack a",
         "visiblestack b",
-
         "visiblestack c",
 
         "setup start",
             "random Parent -> a top 20",
+            "random Parent -> b top 20",
+            "random Parent -> c top 1"
         "end",
 
         "turn start",
             "a,b -> c top 1",
+            "a,b ->_ c bottom 2",
         "end",
 
     "end"
@@ -381,7 +371,36 @@ TEST(EndToEndTests, MoveFromSelection)
     p.Run(true);
     p.RunSetup();
     p.RunTurn();
-    EXPECT_TRUE(p.m_waitingForUserInteraction);
 
-    // TODO: finish this test
+    EXPECT_TRUE(p.m_waitingForUserInteraction);
+    EXPECT_TRUE(p.m_card_input_wait.srcTop);
+    EXPECT_EQ(p.m_card_input_wait.type, Battler::InputOperationType::CHOOSE_SOURCE);
+    EXPECT_EQ(p.m_card_input_wait.sourceStackSelectionPool.size(), 2);
+    EXPECT_EQ(p.m_card_input_wait.sourceStackSelectionPool[0], 0);
+    EXPECT_EQ(p.m_card_input_wait.sourceStackSelectionPool[1], 1);
+    p.m_card_input_wait.srcStackID = 1;
+
+    EXPECT_EQ(p.game().stacks[0].cards.size(), 20);
+    EXPECT_EQ(p.game().stacks[1].cards.size(), 20);
+    EXPECT_EQ(p.game().stacks[2].cards.size(), 1);
+    Battler::Card cardToMove = *(p.game().stacks[1].cards.end()-1);
+    p.RunTurn(true);
+    EXPECT_EQ(p.game().stacks[0].cards.size(), 20);
+    EXPECT_EQ(p.game().stacks[1].cards.size(), 19);
+    EXPECT_EQ(p.game().stacks[2].cards.size(), 2);
+    EXPECT_EQ((p.game().stacks[2].cards.end()-1)->UUID, cardToMove.UUID);
+
+    EXPECT_TRUE(p.m_waitingForUserInteraction);
+    EXPECT_FALSE(p.m_card_input_wait.srcTop);
+    EXPECT_EQ(p.m_card_input_wait.type, Battler::InputOperationType::CHOOSE_SOURCE);
+    EXPECT_EQ(p.m_card_input_wait.sourceStackSelectionPool.size(), 2);
+    EXPECT_EQ(p.m_card_input_wait.sourceStackSelectionPool[0], 0);
+    EXPECT_EQ(p.m_card_input_wait.sourceStackSelectionPool[1], 1);
+    p.m_card_input_wait.srcStackID = 0;
+    Battler::Card newCardToBeOnTheBottom = p.game().stacks[0].cards[1];
+    p.RunTurn(true);
+    EXPECT_EQ(p.game().stacks[0].cards.size(), 18);
+    EXPECT_EQ(p.game().stacks[1].cards.size(), 19);
+    EXPECT_EQ(p.game().stacks[2].cards.size(), 4);
+    EXPECT_EQ(p.game().stacks[2].cards.begin()->UUID, newCardToBeOnTheBottom.UUID);
 }
