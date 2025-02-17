@@ -59,7 +59,10 @@ enum class OpcodeType
     STACK_SOURCE_CHOICE_GATHER,
     STACK_DEST_TOP,
     STACK_DEST_BOTTOM,
-    
+    STACK_MOVE_SOURCE_TOP_MULTI_CHOOSE,
+    STACK_MOVE_SOURCE_BOTTOM_MULTI_CHOOSE,
+    STACK_MOVE_SOURCE_MULTI_GATHER,
+
     // Stack cut operations,
     STACK_CUT_SOURCE_CHOOSE,
     STACK_CUT_SOURCE,
@@ -68,6 +71,7 @@ enum class OpcodeType
     STACK_CUT_SOURCE_TOP,
     STACK_CUT_SOURCE_BOTTOM,
     STACK_CUT_SOURCE_CHOICE_GATHER,
+    STACK_CUT_SOURCE_MULTI_GATHER,
     
     // other declarations
     ATTR_DECL,
@@ -136,7 +140,10 @@ class Opcode
 
 enum class InputOperationType {
     MOVE,
-    CUT
+    CUT,
+    CHOOSE_SOURCE,
+    CHOOSE_DESTINATION,
+    CHOOSE_SOURCE_AND_DESTINATION,
 };
 
 class CardInputWait
@@ -146,11 +153,14 @@ public:
     int dstStackID;
     int nExpected{0};
     bool dstTop;
+    bool srcTop;
     InputOperationType type;
     bool fixedDest{true};
     bool fixedSrc{true};
     int cutPoint;
     std::vector<Card> cardsToMove;
+    std::vector<int> sourceStackSelectionPool;
+    std::vector<int> destinationStackSelectionPool;
 };
 
 class Program

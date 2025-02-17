@@ -382,7 +382,7 @@ void Program::compile_expression(Expression expr)
 		if (sourceStackExpr.type == ExpressionType::STACK_MOVE_SOURCE_MULTI)
 		{
 			vector<Opcode> sourceOpcodes;
-			Opcode gatherOpcode, destOpcode;
+			Opcode chooseOpcode, gatherOpcode, destOpcode;
 
 			if (expr.type == ExpressionType::STACK_MOVE)
 			{
@@ -419,18 +419,26 @@ void Program::compile_expression(Expression expr)
 					throw CompileError("Unexpected token in a multi-move source list", *currentToken);
 				}
 			}
+
+            if (targetStackExpr.type == ExpressionType::STACK_SOURCE_TOP)
+            {
+                chooseOpcode.type = OpcodeType::STACK_MOVE_SOURCE_TOP_MULTI_CHOOSE;
+            }
+            else if (targetStackExpr.type == ExpressionType::STACK_SOURCE_BOTTOM)
+            {
+                chooseOpcode.type = OpcodeType::STACK_MOVE_SOURCE_BOTTOM_MULTI_CHOOSE;
+            }
+
+            m_opcodes.push_back(chooseOpcode);
 			for (auto name : names)
 			{
 				compile_name(name, NAME_IS_LVALUE);
 			}
-
-			//for (Token& t : sourceStackExpr.tokens)
-			//{
-			//	if (t.type == TokenType::name)
-			//	{
-			//		compile_name({ t }, NAME_IS_LVALUE);
-			//	}
-			//}
+            gatherOpcode.type = OpcodeType::STACK_MOVE_SOURCE_MULTI_GATHER;
+            m_opcodes.push_back(gatherOpcode);
+            m_opcodes.push_back(destOpcode);
+            compile_name(targetStackExpr.children[0].tokens, NAME_IS_RVALUE);
+            factor_expression(targetStackExpr.children[1]);
 		}
 		else if (sourceStackExpr.type == ExpressionType::STACK_MOVE_RANDOM_SOURCE)
 		{
@@ -1094,6 +1102,88 @@ int Program::run(Opcode code, bool load)
             return RUN_WAITING_FOR_INTERACTION_RETURN;
         }
     }
+    else if (code.type == OpcodeType::STACK_MOVE_SOURCE_TOP_MULTI_CHOOSE || code.type == OpcodeType::STACK_MOVE_SOURCE_BOTTOM_MULTI_CHOOSE)
+    {
+        int i = 0;
+        std::vector<int> source_ids_to_select_from;
+        m_current_opcode_index++;
+        while (m_opcodes[m_current_opcode_index].type == OpcodeType::L_VALUE_DOT_SEPERATED_REF_CHAIN || m_opcodes[m_current_opcode_index].type == OpcodeType::L_VALUE)
+        {
+            std::vector<std::string> current_name;
+            read_name(current_name, m_opcodes[m_current_opcode_index+i].type);
+            Attr* stackName = this->get_attr_ptr(current_name);
+            source_ids_to_select_from.push_back(stackName->stackRef);
+        }
+
+        m_card_input_wait = CardInputWait();
+        m_card_input_wait.type = InputOperationType::CHOOSE_SOURCE;
+        m_card_input_wait.srcStackID = -1;
+        m_card_input_wait.sourceStackSelectionPool = source_ids_to_select_from;
+        m_card_input_wait.srcTop = code.type == OpcodeType::STACK_MOVE_SOURCE_TOP_MULTI_CHOOSE;
+        m_waitingForUserInteraction = true;
+        return RUN_WAITING_FOR_INTERACTION_RETURN;
+    }
+    else if (code.type == OpcodeType::STACK_MOVE_SOURCE_MULTI_GATHER)
+    {
+        Stack* src = &m_game.stacks[m_card_input_wait.srcStackID];
+        m_current_opcode_index ++;
+
+        auto destOpcode = m_opcodes[m_current_opcode_index];
+        m_current_opcode_index++;
+        std::vector<std::string> destStackName;
+        read_name(destStackName, m_opcodes[m_current_opcode_index].type);
+        int cardsToMove = resolve_number_expression();
+        bool toTop = destOpcode.type == OpcodeType::STACK_DEST_TOP;
+        Attr* stackDestination = get_attr_ptr(destStackName);
+        Stack* dst = &game().stacks[stackDestination->stackRef];
+
+        vector<Card> cardsTaken;
+        if (m_card_input_wait.srcTop)
+        {
+            auto sourceTop= game().stacks[m_card_input_wait.srcStackID].cards.end();
+            auto sourceLastCard = sourceTop - cardsToMove;
+
+            cardsTaken = std::vector(sourceLastCard, sourceTop);
+            game().stacks[m_card_input_wait.srcStackID].cards.erase(sourceLastCard, sourceTop);
+        }
+        else
+        {
+            auto sourceBottom = game().stacks[m_card_input_wait.srcStackID].cards.begin();
+            auto sourceLastCard = sourceBottom + cardsToMove;
+
+            cardsTaken = std::vector(sourceBottom, sourceLastCard);
+            game().stacks[m_card_input_wait.srcStackID].cards.erase(sourceBottom, sourceLastCard);
+        }
+
+        std::reverse(cardsTaken.begin(), cardsTaken.end());
+
+        if (toTop)
+        {
+            dst->cards.insert(dst->cards.end(), cardsTaken.begin(), cardsTaken.end());
+        }
+        else
+        {
+            dst->cards.insert(dst->cards.begin(), cardsTaken.begin(), cardsTaken.end());
+        }
+
+        vector<int> cardsTakenIDs;
+        for (Card c : cardsTaken)
+        {
+            cardsTakenIDs.push_back(c.UUID);
+        }
+
+        call_stack_move_callback(
+                m_card_input_wait.srcStackID,
+                dst->ID,
+                m_card_input_wait.srcTop,
+                toTop,
+                cardsTakenIDs.data(),
+                cardsTakenIDs.size()
+        );
+
+        m_waitingForUserInteraction = false;
+        m_card_input_wait = CardInputWait();
+    }
     else if (code.type == OpcodeType::STACK_SOURCE_CHOICE_GATHER)
     {
         int forCallbackReport_src = m_card_input_wait.srcStackID;
@@ -1456,23 +1546,39 @@ void Program::ignore_block()
 	m_current_opcode_index++;
 }
 
+int get_stored_string_index(Opcode stringOpcode)
+{
+    TYPE_CODE_T _string_typecode = stringOpcode.data & TYPE_CODE_T_MASK;
+    assert(_string_typecode == STRING_TC);
+    DATA_IX_T stringNameIdx = (stringOpcode.data & (OPCODE_CONV_T(0xFF) << 32)) >> 32;
+    return stringNameIdx;
+}
+
 void Program::read_name(vector<string>& names, OpcodeType nameType)
 {
 	int idx = m_current_opcode_index;
-	while (m_opcodes[idx].type == nameType)
-	{
-		auto nameOpcode = m_opcodes[idx];
-		TYPE_CODE_T _string_typecode = nameOpcode.data & TYPE_CODE_T_MASK;
-		assert(_string_typecode == STRING_TC);
-		DATA_IX_T stringNameIdx = (nameOpcode.data & (OPCODE_CONV_T(0xFF) << 32)) >> 32;
-		names.push_back(m_strings[stringNameIdx]);
-		idx++;
-	}
+    if (m_opcodes[idx].type == OpcodeType::L_VALUE || m_opcodes[idx].type == OpcodeType::R_VALUE)
+    {
+        int stringNameIdx = get_stored_string_index(m_opcodes[idx]);
+        names.push_back(m_strings[stringNameIdx]);
+        idx++;
+    }
+    else
+    {
+//        assume we are dealing with a DOT_SERPATED_REF_CHAIN lvalue or rvalue
+        while (m_opcodes[idx].type == nameType)
+        {
+            int stringNameIdx = get_stored_string_index(m_opcodes[idx]);
+            names.push_back(m_strings[stringNameIdx]);
+            idx++;
+        }
 
-	if (m_opcodes[idx].type == OpcodeType::DOT_SEPERATED_REF_CHAIN_END)
-	{
-		idx++;
-	}
+        if (m_opcodes[idx].type == OpcodeType::DOT_SEPERATED_REF_CHAIN_END)
+        {
+            idx++;
+        }
+    }
+
 	m_current_opcode_index = idx;
 }
 
