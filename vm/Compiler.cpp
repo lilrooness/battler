@@ -422,11 +422,11 @@ void Program::compile_expression(Expression expr)
 
             if (targetStackExpr.type == ExpressionType::STACK_SOURCE_TOP)
             {
-                chooseOpcode.type = OpcodeType::STACK_MOVE_SOURCE_TOP_MULTI_CHOOSE;
+                chooseOpcode.type = OpcodeType::STACK_MOVE_SOURCE_TOP_MULTI;
             }
             else if (targetStackExpr.type == ExpressionType::STACK_SOURCE_BOTTOM)
             {
-                chooseOpcode.type = OpcodeType::STACK_MOVE_SOURCE_BOTTOM_MULTI_CHOOSE;
+                chooseOpcode.type = OpcodeType::STACK_MOVE_SOURCE_BOTTOM_MULTI;
             }
 
             m_opcodes.push_back(chooseOpcode);
@@ -1102,7 +1102,7 @@ int Program::run(Opcode code, bool load)
             return RUN_WAITING_FOR_INTERACTION_RETURN;
         }
     }
-    else if (code.type == OpcodeType::STACK_MOVE_SOURCE_TOP_MULTI_CHOOSE || code.type == OpcodeType::STACK_MOVE_SOURCE_BOTTOM_MULTI_CHOOSE)
+    else if (code.type == OpcodeType::STACK_MOVE_SOURCE_TOP_MULTI || code.type == OpcodeType::STACK_MOVE_SOURCE_BOTTOM_MULTI)
     {
         int i = 0;
         std::vector<int> source_ids_to_select_from;
@@ -1119,7 +1119,7 @@ int Program::run(Opcode code, bool load)
         m_card_input_wait.type = InputOperationType::CHOOSE_SOURCE;
         m_card_input_wait.srcStackID = -1;
         m_card_input_wait.sourceStackSelectionPool = source_ids_to_select_from;
-        m_card_input_wait.srcTop = code.type == OpcodeType::STACK_MOVE_SOURCE_TOP_MULTI_CHOOSE;
+        m_card_input_wait.srcTop = code.type == OpcodeType::STACK_MOVE_SOURCE_TOP_MULTI;
         m_waitingForUserInteraction = true;
         return RUN_WAITING_FOR_INTERACTION_RETURN;
     }
