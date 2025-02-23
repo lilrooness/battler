@@ -304,7 +304,7 @@ namespace Battler {
         return expr;
     }
 
-    Expression GetStackMoveTargetExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end) {
+    Expression GetStackMoveTargetExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end, bool requirePosition/*=true*/, bool requireAmount/*=true*/) {
         ensureTokenType(TokenType::name, *current, "this is not a valid left side move expression");
 
         Expression expr;
@@ -312,53 +312,41 @@ namespace Battler {
         auto stackIdentifierTokens = GetIdentifierTokens(current, end);
         Expression stackIdentifierExpr(ExpressionType::IDENTIFIER, std::move(stackIdentifierTokens));
 
-        ensureNoEOF(++current, end);
-        ensureTokenType(TokenType::name, *current, "Expected one of 'choose', 'top' or 'bottom' here");
+        if (requirePosition)
+        {
+            ensureNoEOF(++current, end);
+            ensureTokenType(TokenType::name, *current, "Expected one of 'choose', 'top' or 'bottom' here");
 
-        if (current->text == "top") {
-            expr.type = ExpressionType::STACK_SOURCE_TOP;
+            if (current->text == "top") {
+                expr.type = ExpressionType::STACK_SOURCE_TOP;
+            }
+            else if (current->text == "bottom") {
+                expr.type = ExpressionType::STACK_SOURCE_BOTTOM;
+            }
+            else {
+                throw UnexpectedTokenException(*current, "Expected one of 'top' or 'bottom' here");
+            }
+            expr.tokens.push_back(*current);
         }
-        else if (current->text == "bottom") {
-            expr.type = ExpressionType::STACK_SOURCE_BOTTOM;
-        }
-        else {
-            throw UnexpectedTokenException(*current, "Expected one of 'top' or 'bottom' here");
-        }
-        expr.tokens.push_back(*current);
-
-        ensureNoEOF(++current, end);
-
-        auto factorExpression = GetFactorExpression(current, end);
 
         expr.children.push_back(std::move(stackIdentifierExpr));
-        expr.children.push_back(std::move(factorExpression));
+
+        if (requireAmount)
+        {
+            ensureNoEOF(++current, end);
+            auto factorExpression = GetFactorExpression(current, end);
+            expr.children.push_back(std::move(factorExpression));
+        }
 
         return expr;
     }
 
-//    Expression GetMoveExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end, std::vector<Token>::iterator& leftAccumulationStart, ExpressionType moveType) {
-//        if (current->type != TokenType::move && current->type != TokenType::move_under) {
-//            throw UnexpectedTokenException(*current, "move expressions must contain a move operator '->' or '->_'");
-//        }
-//
-//        Expression moveExpr(moveType, { *current });
-//        auto leftExpr = GetStackMoveSourceExpression(leftAccumulationStart, end);
-//        ensureNoEOF(++leftAccumulationStart, end);
-//        if (leftAccumulationStart != current) {
-//            throw UnexpectedTokenException(*leftAccumulationStart, "You can't have more than one expression on the left hand side of a move");
-//        }
-//        ensureNoEOF(++current, end);
-//        auto rightExpr = GetStackMoveTargetExpression(current, end);
-//
-//
-//        moveExpr.children.push_back(std::move(leftExpr));
-//        moveExpr.children.push_back(std::move(rightExpr));
-//
-//        return moveExpr;
-//    }
-
     Expression GetTransferExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end, std::vector<Token>::iterator& leftAccumulationStart) {
-        if (current->type != TokenType::move && current->type != TokenType::move_under) {
+        if (current->type != TokenType::move
+            && current->type != TokenType::move_under
+            && current->type != TokenType::cut
+            && current->type != TokenType::cut_under) {
+
             throw UnexpectedTokenException(*current, "move expressions must contain a move operator '->' or '->_'");
         }
 
@@ -389,7 +377,17 @@ namespace Battler {
             operationExpr.type = ExpressionType::STACK_CUT_UNDER;
         }
         ensureNoEOF(++current, end);
-        targetStackExpr = GetStackMoveTargetExpression(current, end);
+
+        bool requireAmount = true;
+
+        if (sourceStackExpr.type == ExpressionType::STACK_MOVE_CHOOSE_SOURCE
+        && (operationExpr.type == ExpressionType::STACK_CUT_UNDER
+            || operationExpr.type == ExpressionType::STACK_CUT))
+        {
+            requireAmount = false;
+        }
+
+        targetStackExpr = GetStackMoveTargetExpression(current, end, true, requireAmount);
 
         expr.children.push_back(sourceStackExpr);
         expr.children.push_back(operationExpr);
@@ -501,99 +499,6 @@ namespace Battler {
         expr.children.push_back(GetFactorExpression(current, end));
 
         return expr;
-    }
-
-    Expression GetCutMoveSourceExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end) {
-        ensureTokenType(TokenType::name, *current, "this is not a valid left side move expression");
-
-        Expression expr;
-        
-        if (current->text == "choose") {
-            ensureNoEOF(++current, end);
-            expr.tokens = GetIdentifierTokens(current, end);;
-            expr.type = ExpressionType::STACK_CUT_CHOOSE_SOURCE;
-            return expr;
-        }
-
-        expr.type = ExpressionType::STACK_CUT_SOURCE;
-        expr.tokens = GetIdentifierTokens(current, end);
-        return expr;
-    }
-
-    Expression GetCutMoveTargetExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end, bool requirePosition=true, bool requireAmount=true) {
-        ensureTokenType(TokenType::name, *current, "this is not a valid left side cut expression");
-
-        Expression expr;
-
-        auto stackIdentifierTokens = GetIdentifierTokens(current, end);
-        Expression stackIdentifierExpr(ExpressionType::IDENTIFIER, std::move(stackIdentifierTokens));
-
-        if (requirePosition)
-        {
-            ensureNoEOF(++current, end);
-            ensureTokenType(TokenType::name, *current, "Expected one of 'top' or 'bottom' here");
-            
-            if (current->text == "top") {
-                expr.type = ExpressionType::STACK_CUT_SOURCE_TOP;
-            }
-            else if (current->text == "bottom") {
-                expr.type = ExpressionType::STACK_CUT_SOURCE_BOTTOM;
-            }
-            else {
-                throw UnexpectedTokenException(*current, "Expected one of 'top' or 'bottom' here");
-            }
-            expr.tokens.push_back(*current);
-        }
-        else
-        {
-            expr.type = ExpressionType::STACK_CUT_SOURCE_TOP;
-        }
-        
-        expr.children.push_back(std::move(stackIdentifierExpr));
-        
-        if (requireAmount)
-        {
-            ensureNoEOF(++current, end);
-            auto factorExpression = GetFactorExpression(current, end);
-            expr.children.push_back(std::move(factorExpression));
-        }
-
-        return expr;
-    }
-
-    Expression GetCutMoveExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end,
-        std::vector<Token>::iterator& leftAccumulationStart, ExpressionType cutType) {
-        
-            if (current->type != TokenType::cut && current->type != TokenType::cut_under) {
-                throw UnexpectedTokenException(*current, "cut expressions must contain a cut operator '/>' or '/>_'");
-            }
-
-            Expression cutExpr(cutType, { *current });
-            auto leftExpr = GetCutMoveSourceExpression(leftAccumulationStart, end);
-            ensureNoEOF(++leftAccumulationStart, end);
-            if (leftAccumulationStart != current) {
-                throw UnexpectedTokenException(*leftAccumulationStart, "You can't have more than one expression on the left hand side of a cut");
-            }
-        
-            bool requireAmount = true;
-            bool requirePosition = true;
-        
-            if (leftExpr.type == ExpressionType::STACK_CUT_CHOOSE_SOURCE)
-            {
-                requireAmount = false;
-                requirePosition = false;
-                
-            }
-        
-            ensureNoEOF(++current, end);
-            
-            auto rightExpr = GetCutMoveTargetExpression(current, end, requirePosition, requireAmount);
-
-
-            cutExpr.children.push_back(std::move(leftExpr));
-            cutExpr.children.push_back(std::move(rightExpr));
-
-            return cutExpr;
     }
 
     Expression GetExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end) {

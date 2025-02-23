@@ -198,19 +198,6 @@ TEST(ParserTest, CutTest)
     EXPECT_EQ(tokens[4].type, Battler::TokenType::number);
 }
 
-TEST(ExpressionTest, CutTest)
-{
-    std::string line = "a /> b top 5";
-    
-    Battler::Program p;
-    p._Parse({line});
-    auto tokens = p._Tokens();
-    auto tokensBegin = tokens.begin();
-    Battler::Expression expr = Battler::GetExpression(tokensBegin, tokens.end());
-    
-    EXPECT_EQ(expr.children.size(), 2);
-}
-
 TEST(CompilerTest, CutTest)
 {
     std::string line = "a /> b top 5";
@@ -242,7 +229,7 @@ TEST(EndToEndTests, ChooseCutTest)
             "end",
         
             "turn start",
-                "choose a /> b",
+                "choose a /> b top",
             "end",
         
         "end"
@@ -261,13 +248,12 @@ TEST(EndToEndTests, ChooseCutTest)
     EXPECT_TRUE(p.m_waitingForUserInteraction);
     
     Battler::StackTransferStateTracker waiting = p.m_stackTransferStateTracker;
-    EXPECT_EQ(waiting.type, Battler::InputOperationType::CUT);
+    EXPECT_EQ(waiting.type, Battler::InputOperationType::CHOOSE_CARDS_FROM_SOURCE);
+    EXPECT_EQ(waiting.transferType, Battler::StackTransferType::CUT);
     EXPECT_EQ(waiting.fixedDest, true);
     EXPECT_EQ(waiting.fixedSrc, true);
     EXPECT_EQ(waiting.srcStackID, 0);
-    EXPECT_EQ(waiting.dstStackID, 1);
-    EXPECT_EQ(waiting.dstTop, true);
-    EXPECT_EQ(waiting.nExpected, 0);
+    EXPECT_EQ(waiting.nExpected, -1);
     
     p.m_stackTransferStateTracker.cutPoint = 10;
     p.RunTurn(true);
@@ -291,47 +277,14 @@ TEST(ParserTest, CutTestChoose)
     EXPECT_EQ(tokens[3].type, Battler::TokenType::name);
 }
 
-TEST(ExpressionTest, CutTestChoose)
-{
-    std::string line = "choose a /> b";
-    
-    Battler::Program p;
-    p._Parse({line});
-    auto tokens = p._Tokens();
-    auto tokensBegin = tokens.begin();
-    Battler::Expression expr = Battler::GetExpression(tokensBegin, tokens.end());
-    
-    EXPECT_EQ(expr.children.size(), 2);
-    EXPECT_EQ(expr.children[1].children.size(), 1);
-    EXPECT_EQ(expr.children[1].type, Battler::ExpressionType::STACK_CUT_SOURCE_TOP);
-}
-
 TEST(CompilerTest, CutTestChoose)
 {
-    std::string line = "choose a /> b";
+    std::string line = "choose a /> b top";
     
     Battler::Program p;
     p.Compile({line});
     std::vector<Battler::Opcode> opcodes = p.opcodes();
     // TODO: this test isn't tesing anything
-}
-
-TEST(ExpressionTest, MoveFromSelection)
-{
-    std::string line = "a,b -> c top 1";
-
-    Battler::Program p;
-    p._Parse({ line });
-    auto tokens = p._Tokens();
-    auto tokensBegin = tokens.begin();
-    Battler::Expression expr = Battler::GetExpression(tokensBegin, tokens.end());
-
-    EXPECT_EQ(expr.children.size(), 2);
-    EXPECT_EQ(expr.children[0].children.size(), 0);
-    EXPECT_EQ(expr.children[0].type, Battler::ExpressionType::STACK_MOVE_SOURCE_MULTI);
-    EXPECT_EQ(expr.children[1].children.size(), 2);
-    EXPECT_EQ(expr.children[1].children[0].type, Battler::ExpressionType::IDENTIFIER);
-    EXPECT_EQ(expr.children[1].children[1].type, Battler::ExpressionType::FACTOR);
 }
 
 TEST(EndToEndTests, MoveFromSelection)

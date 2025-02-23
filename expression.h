@@ -97,8 +97,7 @@ namespace Battler {
     Expression GetSetupExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end);
     Expression GetForEachPlayerExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end);
     Expression GetStackMoveSourceExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end);
-    Expression GetStackMoveTargetExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end);
-    Expression GetMoveExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end, std::vector<Token>::iterator& leftAccumulationStart, ExpressionType moveType);
+    Expression GetStackMoveTargetExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end, bool requirePosition=true, bool requireAmount=true);
     Expression GetPhaseDeclarationExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end);
     Expression GetOnPlaceExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end);
     Expression GetIfExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end);

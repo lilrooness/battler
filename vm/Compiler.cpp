@@ -99,6 +99,17 @@ void Program::compile_name(vector<Token> tokens, bool lvalue)
 	}
 }
 
+void Program::compile_factor_from_number(int number)
+{
+    Opcode code;
+    code.type = OpcodeType::R_VALUE;
+    DATA_IX_T int_index = (DATA_IX_T) m_ints.size();
+    m_ints.push_back(number);
+    code.data |= INT_TC;
+    code.data |= ((OPCODE_CONV_T)int_index << 32);
+    m_opcodes.push_back(code);
+}
+
 void Program::factor_expression(Expression expr)
 {
 	if (expr.type == ExpressionType::FACTOR)
@@ -440,7 +451,17 @@ void Program::compile_expression(Expression expr)
         }
         m_opcodes.push_back(Opcode(OpcodeType::STACK_SOURCE_LOCATION));
         m_opcodes.push_back(sourceLocationOpcode);
-        factor_expression(targetStackExpr.children[1]);
+
+        // we don't expect a number on this expression
+        // choose a /> b top
+        if (sourceLocationOpcode.type == OpcodeType::CHOOSE && transferOperatorOpcode.type == OpcodeType::CUT)
+        {
+            compile_factor_from_number(-1);
+        }
+        else
+        {
+            factor_expression(targetStackExpr.children[1]);
+        }
         m_opcodes.push_back(transferOperatorOpcode);
         m_opcodes.push_back(OpcodeType::DESTINATION_STACK);
         m_opcodes.push_back(targetStackOpcode);
@@ -701,7 +722,20 @@ bool Program::CompleteStackTransfer(StackTransferStateTracker state)
     }
     else if (m_stackTransferStateTracker.transferType == StackTransferType::CUT)
     {
-
+        if (m_stackTransferStateTracker.srcTop)
+        {
+            cardsToMove = vector(
+            sourceStack->cards.end()-m_stackTransferStateTracker.cutPoint,
+            sourceStack->cards.end()
+            );
+        }
+        else
+        {
+            cardsToMove = vector(
+            sourceStack->cards.begin(),
+            sourceStack->cards.end() - m_stackTransferStateTracker.cutPoint
+            );
+        }
     }
     else
     {

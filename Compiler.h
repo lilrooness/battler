@@ -256,6 +256,7 @@ private:
 
     void ignore_block();
     void compile_expression(Expression);
+    void compile_factor_from_number(int number);
 
     //copied from run.h
     AttrCont* GetObjectAttrContPtrFromIdentifier(vector<string>::iterator namesBegin, vector<string>::iterator namesEnd);
