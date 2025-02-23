@@ -23,6 +23,12 @@ const int RUN_ERROR = -1;
 const int RUN_FINISHED = 0;
 const int RUN_WAITING_FOR_INTERACTION_RETURN = 1;
 
+enum class StackTransferType
+{
+    MOVE,
+    CUT
+};
+
 enum class OpcodeType
 {
     // Block headers
@@ -72,6 +78,30 @@ enum class OpcodeType
     STACK_CUT_SOURCE_BOTTOM,
     STACK_CUT_SOURCE_CHOICE_GATHER,
     STACK_CUT_SOURCE_MULTI_GATHER,
+
+    // indication of a stack transfer
+    STACK_TRANSFER,
+    // User interaction indicator in stack transfer
+    CHOOSE,
+    // Random indicator in stack transfer
+    RANDOM,
+    // indication of identifier in stack transfer
+    IDENTIFIER,
+    // indication of a move transfer
+    MOVE,
+    // indication of a cut transfer
+    CUT,
+    // indication of top or bottom of a stack
+    TOP, BOTTOM,
+    // Gather user input
+    GATHER_SOURCE_STACK,
+    GATHER_SOURCE_STACK_LOCATION,
+    GATHER_DEST_STACK,
+    // indication of a following stack location
+    STACK_SOURCE_LOCATION,
+    STACK_DESTINATION_LOCATION,
+    // indication of a following stack destination identifier
+    DESTINATION_STACK,
     
     // other declarations
     ATTR_DECL,
@@ -133,6 +163,7 @@ class Opcode
 {
     public:
         Opcode() : data(0), blk_size(0) {};
+        Opcode(OpcodeType t) : type(t) {};
         OpcodeType type;
         int blk_size;
         uint64_t data;
@@ -141,14 +172,18 @@ class Opcode
 enum class InputOperationType {
     MOVE,
     CUT,
+    CHOOSE_CARDS_FROM_SOURCE,
     CHOOSE_SOURCE,
     CHOOSE_DESTINATION,
     CHOOSE_SOURCE_AND_DESTINATION,
 };
 
-class CardInputWait
+class StackTransferStateTracker
 {
 public:
+    StackTransferType transferType;
+    bool randomSource{false};
+    std::string randomSourceParentCard;
     int srcStackID;
     int dstStackID;
     int nExpected{0};
@@ -157,10 +192,11 @@ public:
     InputOperationType type;
     bool fixedDest{true};
     bool fixedSrc{true};
-    int cutPoint;
     std::vector<Card> cardsToMove;
     std::vector<int> sourceStackSelectionPool;
     std::vector<int> destinationStackSelectionPool;
+    bool complete{false};
+    int cutPoint {0};
 };
 
 class Program
@@ -174,7 +210,7 @@ public:
     int RunTurn(bool resume=false);
     vector<AttrCont>& locale_stack();
     bool m_waitingForUserInteraction{false};
-    CardInputWait m_card_input_wait;
+    StackTransferStateTracker m_stackTransferStateTracker;
 
     void SetStackMoveCallbackFun(stack_move_callback_fun* fun, void* data);
     bool AddCardToWaitingInput(Card c);
@@ -241,6 +277,7 @@ private:
     Attr add_attrs(Attr a, Attr b);
     Attr multiply_attrs(Attr a, Attr b);
     Attr divide_attrs(Attr a, Attr b);
+    bool CompleteStackTransfer(StackTransferStateTracker);
 
     void call_stack_move_callback(int from, int to, bool fromTop, bool toTop, const int* cardIds, int nCards);
 };

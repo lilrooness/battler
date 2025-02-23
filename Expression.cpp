@@ -336,25 +336,66 @@ namespace Battler {
         return expr;
     }
 
-    Expression GetMoveExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end, std::vector<Token>::iterator& leftAccumulationStart, ExpressionType moveType) {
+//    Expression GetMoveExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end, std::vector<Token>::iterator& leftAccumulationStart, ExpressionType moveType) {
+//        if (current->type != TokenType::move && current->type != TokenType::move_under) {
+//            throw UnexpectedTokenException(*current, "move expressions must contain a move operator '->' or '->_'");
+//        }
+//
+//        Expression moveExpr(moveType, { *current });
+//        auto leftExpr = GetStackMoveSourceExpression(leftAccumulationStart, end);
+//        ensureNoEOF(++leftAccumulationStart, end);
+//        if (leftAccumulationStart != current) {
+//            throw UnexpectedTokenException(*leftAccumulationStart, "You can't have more than one expression on the left hand side of a move");
+//        }
+//        ensureNoEOF(++current, end);
+//        auto rightExpr = GetStackMoveTargetExpression(current, end);
+//
+//
+//        moveExpr.children.push_back(std::move(leftExpr));
+//        moveExpr.children.push_back(std::move(rightExpr));
+//
+//        return moveExpr;
+//    }
+
+    Expression GetTransferExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end, std::vector<Token>::iterator& leftAccumulationStart) {
         if (current->type != TokenType::move && current->type != TokenType::move_under) {
             throw UnexpectedTokenException(*current, "move expressions must contain a move operator '->' or '->_'");
         }
 
-        Expression moveExpr(moveType, { *current });
-        auto leftExpr = GetStackMoveSourceExpression(leftAccumulationStart, end);
+        Expression expr;
+        expr.type = ExpressionType::STACK_TRANSFER;
+        Expression sourceStackExpr, operationExpr, targetStackExpr;
+
+        sourceStackExpr = GetStackMoveSourceExpression(leftAccumulationStart, end);
         ensureNoEOF(++leftAccumulationStart, end);
         if (leftAccumulationStart != current) {
             throw UnexpectedTokenException(*leftAccumulationStart, "You can't have more than one expression on the left hand side of a move");
         }
+
+        if (current->type == TokenType::move)
+        {
+            operationExpr.type = ExpressionType::STACK_MOVE;
+        }
+        else if(current->type == TokenType::move_under)
+        {
+            operationExpr.type = ExpressionType::STACK_MOVE_UNDER;
+        }
+        else if (current->type == TokenType::cut)
+        {
+            operationExpr.type = ExpressionType::STACK_CUT;
+        }
+        else if (current->type == TokenType::cut_under)
+        {
+            operationExpr.type = ExpressionType::STACK_CUT_UNDER;
+        }
         ensureNoEOF(++current, end);
-        auto rightExpr = GetStackMoveTargetExpression(current, end);
+        targetStackExpr = GetStackMoveTargetExpression(current, end);
 
+        expr.children.push_back(sourceStackExpr);
+        expr.children.push_back(operationExpr);
+        expr.children.push_back(targetStackExpr);
 
-        moveExpr.children.push_back(std::move(leftExpr));
-        moveExpr.children.push_back(std::move(rightExpr));
-
-        return moveExpr;
+        return expr;
     }
 
     Expression GetPhaseDeclarationExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end) {
@@ -612,16 +653,16 @@ namespace Battler {
                 return GetAssignmentExpression(current, end, leftAccumulationStart);
             }
             else if (current->type == TokenType::move) {
-                return GetMoveExpression(current, end, leftAccumulationStart, ExpressionType::STACK_MOVE);
+                return GetTransferExpression(current, end, leftAccumulationStart);
             }
             else if (current->type == TokenType::move_under) {
-                return GetMoveExpression(current, end, leftAccumulationStart, ExpressionType::STACK_MOVE_UNDER);
+                return GetTransferExpression(current, end, leftAccumulationStart);
             }
             else if (current->type == TokenType::cut) {
-                return GetCutMoveExpression(current, end, leftAccumulationStart, ExpressionType::STACK_CUT);
+                return GetTransferExpression(current, end, leftAccumulationStart);
             }
             else if (current->type == TokenType::cut_under) {
-                return GetCutMoveExpression(current, end, leftAccumulationStart, ExpressionType::STACK_CUT_UNDER);
+                return GetTransferExpression(current, end, leftAccumulationStart);
             }
 
             ensureNoEOF(++current, end);

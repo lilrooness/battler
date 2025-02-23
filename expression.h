@@ -44,6 +44,7 @@ namespace Battler {
         SETUP_DECLARATION,
         FOREACHPLAYER_DECLARATION,
         FOREACHPLAYER_IDENTIFIER_DECLARATION,
+        STACK_TRANSFER, // General expression for stack move and cut operations
         STACK_MOVE,
         STACK_MOVE_UNDER,
         STACK_MOVE_SOURCE,

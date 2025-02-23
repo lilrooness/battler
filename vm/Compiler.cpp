@@ -171,6 +171,37 @@ void Program::factor_expression(Expression expr)
 	factor_expression(right_expr);
 }
 
+std::vector<vector<Token>> get_identifiers_from_flat_comma_seperated_tokens_vector(std::vector<Token> tokens)
+{
+    auto currentToken = tokens.begin();
+    auto tokensEnd = tokens.end();
+
+    vector<vector<Token> > names;
+    while (currentToken != tokensEnd)
+    {
+        vector<Token> name;
+
+        do
+        {
+            name.push_back(*currentToken);
+            currentToken++;
+        } while (currentToken != tokensEnd && currentToken->type != TokenType::comma);
+
+        names.push_back(name);
+
+        if (currentToken != tokensEnd && currentToken->type == TokenType::comma)
+        {
+            currentToken++;
+        }
+        else if (currentToken != tokensEnd)
+        {
+            throw CompileError("Unexpected token in a multi-move source list", *currentToken);
+        }
+    }
+
+    return names;
+}
+
 void Program::compile_expression(Expression expr)
 {
 	if (expr.type == ExpressionType::GAME_DECLARATION)
@@ -315,205 +346,118 @@ void Program::compile_expression(Expression expr)
 		}
 		m_opcodes.push_back(end);
 	}
-    else if (expr.type == ExpressionType::STACK_CUT || expr.type == ExpressionType::STACK_CUT_UNDER)
-    {
-        auto sourceStackExpr = expr.children[0];
-        auto targetStackExpr = expr.children[1];
-        
-        if (sourceStackExpr.type == ExpressionType::STACK_CUT_SOURCE)
+	else if (expr.type == ExpressionType::STACK_TRANSFER) {
+
+        Expression sourceStackExpr = expr.children[0];
+        Expression operationExpr = expr.children[1];
+        Expression targetStackExpr = expr.children[2];
+
+        Opcode stackTransfer; // transfer operation
+        Opcode sourceStackOpcode; // Source Stack Identifier "a", "a,b"
+        Opcode sourceLocationOpcode; // Source Location Top/Bottom/Choose
+        Opcode transferOperatorOpcode; // move / cut
+        Opcode targetStackOpcode; // Target stack Indentifier "c", "d,e"
+        Opcode targetLocationOpcode; // Target Location Top/Bottom/Choose
+
+        stackTransfer.type = OpcodeType::STACK_TRANSFER;
+
+        // Set Source Stack opcode Type
         {
-            Opcode sourceOpcode;
-            Opcode destinationOpcode;
-            
-            sourceOpcode.type = OpcodeType::STACK_CUT_SOURCE;
-            if (expr.type == ExpressionType::STACK_CUT)
-            {
-                destinationOpcode.type = OpcodeType::STACK_CUT_DEST_TOP;
+            if (sourceStackExpr.type == ExpressionType::STACK_MOVE_SOURCE_MULTI) {
+                sourceStackOpcode.type = OpcodeType::CHOOSE;
+            } else if (sourceStackExpr.type == ExpressionType::STACK_MOVE_CHOOSE_SOURCE_MULTI) {
+                sourceStackOpcode.type = OpcodeType::CHOOSE;
+                sourceLocationOpcode.type = OpcodeType::CHOOSE;
+            } else if (sourceStackExpr.type == ExpressionType::STACK_MOVE_RANDOM_SOURCE) {
+                sourceStackOpcode.type = OpcodeType::RANDOM;
+            } else if (sourceStackExpr.type == ExpressionType::STACK_MOVE_SOURCE) {
+                sourceStackOpcode.type = OpcodeType::IDENTIFIER;
+            } else if (sourceStackExpr.type == ExpressionType::STACK_MOVE_CHOOSE_SOURCE) {
+                sourceStackOpcode.type = OpcodeType::IDENTIFIER;
+                sourceLocationOpcode.type = OpcodeType::CHOOSE;
             }
-            else if (expr.type == ExpressionType::STACK_CUT_UNDER)
-            {
-                destinationOpcode.type = OpcodeType::STACK_CUT_DEST_BOTTOM;
+        }
+
+        //  Set operator opcode type
+        {
+            if (operationExpr.type == ExpressionType::STACK_MOVE) {
+                transferOperatorOpcode.type = OpcodeType::MOVE;
+                targetLocationOpcode.type = OpcodeType::TOP;
+            } else if (operationExpr.type == ExpressionType::STACK_MOVE_UNDER) {
+                transferOperatorOpcode.type = OpcodeType::MOVE;
+                targetLocationOpcode.type = OpcodeType::BOTTOM;
+            } else if (operationExpr.type == ExpressionType::STACK_CUT) {
+                transferOperatorOpcode.type = OpcodeType::CUT;
+                targetLocationOpcode.type = OpcodeType::TOP;
+            } else if (operationExpr.type == ExpressionType::STACK_CUT_UNDER) {
+                transferOperatorOpcode.type = OpcodeType::CUT;
+                targetLocationOpcode.type = OpcodeType::BOTTOM;
             }
-            
-            if (targetStackExpr.type == ExpressionType::STACK_CUT_SOURCE_TOP)
+        }
+
+        //  Set Target Stack opcode type
+        {
+            if (targetStackExpr.type == ExpressionType::STACK_SOURCE_TOP) {
+                if (sourceLocationOpcode.type != OpcodeType::CHOOSE) {
+                    sourceLocationOpcode.type = OpcodeType::TOP;
+                }
+                targetStackOpcode.type = OpcodeType::IDENTIFIER;
+            } else if (targetStackExpr.type == ExpressionType::STACK_SOURCE_BOTTOM) {
+                if (sourceLocationOpcode.type != OpcodeType::CHOOSE) {
+                    sourceLocationOpcode.type = OpcodeType::BOTTOM;
+                }
+                targetStackOpcode.type = OpcodeType::IDENTIFIER;
+            } else if (targetStackExpr.type == ExpressionType::STACK_CUT_SOURCE_TOP)
             {
-                sourceOpcode.type = OpcodeType::STACK_CUT_SOURCE_TOP;
+                if (sourceLocationOpcode.type != OpcodeType::CHOOSE) {
+                    sourceLocationOpcode.type = OpcodeType::TOP;
+                }
+                targetStackOpcode.type = OpcodeType::IDENTIFIER;
             }
             else if (targetStackExpr.type == ExpressionType::STACK_CUT_SOURCE_BOTTOM)
             {
-                sourceOpcode.type = OpcodeType::STACK_CUT_SOURCE_BOTTOM;
+                if (sourceLocationOpcode.type != OpcodeType::CHOOSE) {
+                    sourceLocationOpcode.type = OpcodeType::BOTTOM;
+                }
+                targetStackOpcode.type = OpcodeType::IDENTIFIER;
             }
-            
-            m_opcodes.push_back(sourceOpcode);
-            compile_name(sourceStackExpr.tokens, NAME_IS_LVALUE);
-            m_opcodes.push_back(destinationOpcode);
-            compile_name(targetStackExpr.children[0].tokens, NAME_IS_RVALUE);
-            factor_expression(targetStackExpr.children[1]);
         }
-        else if (sourceStackExpr.type == ExpressionType::STACK_CUT_CHOOSE_SOURCE)
+
+        // Fill Opcodes
+        m_opcodes.push_back(stackTransfer);
+        m_opcodes.push_back(sourceStackOpcode);
+        if(sourceStackOpcode.type == OpcodeType::CHOOSE)
         {
-            Opcode sourceOpcode, gatherOpcode, destinationOpcode;
-            
-            sourceOpcode.type = OpcodeType::STACK_CUT_SOURCE_CHOOSE;
-            if (expr.type == ExpressionType::STACK_CUT)
+            auto names = get_identifiers_from_flat_comma_seperated_tokens_vector(sourceStackExpr.tokens);
+            for (auto name : names)
             {
-                destinationOpcode.type = OpcodeType::STACK_CUT_DEST_TOP;
+                compile_name(name, NAME_IS_LVALUE);
             }
-            else if (expr.type == ExpressionType::STACK_CUT_UNDER)
-            {
-                destinationOpcode.type = OpcodeType::STACK_CUT_DEST_BOTTOM;
-            }
-
-            gatherOpcode.type = OpcodeType::STACK_CUT_SOURCE_CHOICE_GATHER;
-            
-            m_opcodes.push_back(sourceOpcode);
-            compile_name(sourceStackExpr.tokens, NAME_IS_LVALUE);
-            m_opcodes.push_back(destinationOpcode);
-            compile_name(targetStackExpr.children[0].tokens, NAME_IS_RVALUE);
-
-            m_opcodes.push_back(gatherOpcode);
         }
-    }
-	else if (expr.type == ExpressionType::STACK_MOVE || expr.type == ExpressionType::STACK_MOVE_UNDER)
-	{
-		auto sourceStackExpr = expr.children[0];
-		auto targetStackExpr = expr.children[1];
-
-		if (sourceStackExpr.type == ExpressionType::STACK_MOVE_SOURCE_MULTI)
-		{
-			vector<Opcode> sourceOpcodes;
-			Opcode chooseOpcode, gatherOpcode, destOpcode;
-
-			if (expr.type == ExpressionType::STACK_MOVE)
-			{
-				destOpcode.type = OpcodeType::STACK_DEST_TOP;
-			}
-			else
-			{
-				destOpcode.type = OpcodeType::STACK_DEST_BOTTOM;
-			}
-
-			auto currentToken = sourceStackExpr.tokens.begin();
-			auto tokensEnd = sourceStackExpr.tokens.end();
-
-			vector<vector<Token> > names;
-
-			while (currentToken != tokensEnd)
-			{
-				vector<Token> name;
-
-				do
-				{
-					name.push_back(*currentToken);
-					currentToken++;
-				} while (currentToken != tokensEnd && currentToken->type != TokenType::comma);
-
-				names.push_back(name);
-
-				if (currentToken != tokensEnd && currentToken->type == TokenType::comma)
-				{
-					currentToken++;
-				}
-				else if (currentToken != tokensEnd)
-				{
-					throw CompileError("Unexpected token in a multi-move source list", *currentToken);
-				}
-			}
-
-            if (targetStackExpr.type == ExpressionType::STACK_SOURCE_TOP)
-            {
-                chooseOpcode.type = OpcodeType::STACK_MOVE_SOURCE_TOP_MULTI;
-            }
-            else if (targetStackExpr.type == ExpressionType::STACK_SOURCE_BOTTOM)
-            {
-                chooseOpcode.type = OpcodeType::STACK_MOVE_SOURCE_BOTTOM_MULTI;
-            }
-
-            m_opcodes.push_back(chooseOpcode);
-			for (auto name : names)
-			{
-				compile_name(name, NAME_IS_LVALUE);
-			}
-            gatherOpcode.type = OpcodeType::STACK_MOVE_SOURCE_MULTI_GATHER;
-            m_opcodes.push_back(gatherOpcode);
-            m_opcodes.push_back(destOpcode);
-            compile_name(targetStackExpr.children[0].tokens, NAME_IS_RVALUE);
-            factor_expression(targetStackExpr.children[1]);
-		}
-		else if (sourceStackExpr.type == ExpressionType::STACK_MOVE_RANDOM_SOURCE)
-		{
-			Opcode sourceOpcode;
-			Opcode destinationOpcode;
-
-			sourceOpcode.type = OpcodeType::STACK_SOURCE_RANDOM_CARD_TYPE;
-			if (expr.type == ExpressionType::STACK_MOVE)
-			{
-				destinationOpcode.type = OpcodeType::STACK_DEST_TOP;
-			}
-			else
-			{
-				destinationOpcode.type = OpcodeType::STACK_DEST_BOTTOM;
-			}
-
-			m_opcodes.push_back(sourceOpcode);
-			compile_name(sourceStackExpr.tokens, NAME_IS_LVALUE);
-			m_opcodes.push_back(destinationOpcode);
-			compile_name(targetStackExpr.children[0].tokens, NAME_IS_RVALUE);
-			factor_expression(targetStackExpr.children[1]);
-		}
-        else if (sourceStackExpr.type == ExpressionType::STACK_MOVE_CHOOSE_SOURCE)
+        else // OpcodeType::IDENTIFIER
         {
-            Opcode sourceOpcode, gatherOpcode, destOpcode;
-            
-            if (expr.type == ExpressionType::STACK_MOVE)
-            {
-                destOpcode.type = OpcodeType::STACK_DEST_TOP;
-            }
-            else
-            {
-                destOpcode.type = OpcodeType::STACK_DEST_BOTTOM;
-            }
-
-            sourceOpcode.type = OpcodeType::STACK_SOURCE_CHOOSE;
-            
-            gatherOpcode.type = OpcodeType::STACK_SOURCE_CHOICE_GATHER;
-            
-            m_opcodes.push_back(sourceOpcode);
             compile_name(sourceStackExpr.tokens, NAME_IS_LVALUE);
-            m_opcodes.push_back(destOpcode);
-            compile_name(targetStackExpr.children[0].tokens, NAME_IS_RVALUE);
-            factor_expression(targetStackExpr.children[1]);
-            m_opcodes.push_back(gatherOpcode);
         }
-		else if (sourceStackExpr.type == ExpressionType::STACK_MOVE_SOURCE)
-		{
-			Opcode sourceOpcode;
-			Opcode destOpcode;
-
-			if (expr.type == ExpressionType::STACK_MOVE)
-			{
-				destOpcode.type = OpcodeType::STACK_DEST_TOP;
-			}
-			else
-			{
-				destOpcode.type = OpcodeType::STACK_DEST_BOTTOM;
-			}
-
-			if (targetStackExpr.type == ExpressionType::STACK_SOURCE_TOP)
-			{
-				sourceOpcode.type = OpcodeType::STACK_SOURCE_TOP;
-			}
-			else if (targetStackExpr.type == ExpressionType::STACK_SOURCE_BOTTOM)
-			{
-				sourceOpcode.type = OpcodeType::STACK_SOURCE_BOTTOM;
-			}
-            
-			m_opcodes.push_back(sourceOpcode);
-			compile_name(sourceStackExpr.tokens, NAME_IS_LVALUE);
-			m_opcodes.push_back(destOpcode);
-			compile_name(targetStackExpr.children[0].tokens, NAME_IS_RVALUE);
-			factor_expression(targetStackExpr.children[1]);
-		}
+        m_opcodes.push_back(Opcode(OpcodeType::STACK_SOURCE_LOCATION));
+        m_opcodes.push_back(sourceLocationOpcode);
+        factor_expression(targetStackExpr.children[1]);
+        m_opcodes.push_back(transferOperatorOpcode);
+        m_opcodes.push_back(OpcodeType::DESTINATION_STACK);
+        m_opcodes.push_back(targetStackOpcode);
+        if (targetStackOpcode.type == OpcodeType::CHOOSE)
+        {
+            auto names = get_identifiers_from_flat_comma_seperated_tokens_vector(sourceStackExpr.tokens);
+            for (auto name : names)
+            {
+                compile_name(name, NAME_IS_LVALUE);
+            }
+        }
+        else // OpcodeType::IDENTIFIER
+        {
+            compile_name(targetStackExpr.children[0].tokens, NAME_IS_LVALUE);
+        }
+        m_opcodes.push_back(Opcode(OpcodeType::STACK_DESTINATION_LOCATION));
+        m_opcodes.push_back(targetLocationOpcode);
 	}
 	else if (expr.type == ExpressionType::ATTR_ASSIGNMENT)
 	{
@@ -730,6 +674,84 @@ int Program::RunTurn(bool resume/*=false*/)
 	return 0;
 }
 
+bool Program::CompleteStackTransfer(StackTransferStateTracker state)
+{
+    if (!m_stackTransferStateTracker.complete)
+    {
+        return false;
+    }
+
+    std::vector<Card> cardsToMove;
+
+    Stack* sourceStack = &game().stacks[m_stackTransferStateTracker.srcStackID];
+    Stack* destinationStack = &game().stacks[m_stackTransferStateTracker.dstStackID];
+
+    if (m_stackTransferStateTracker.randomSource)
+    {
+        auto matching_cards = m_game.get_cards_of_type(m_stackTransferStateTracker.randomSourceParentCard);
+		for (int i = 0; i < m_stackTransferStateTracker.nExpected; i++)
+		{
+			cardsToMove.push_back(m_game.GenerateCard(matching_cards[rand() % matching_cards.size()].name));
+		}
+    }
+    else if (m_stackTransferStateTracker.transferType == StackTransferType::MOVE)
+    {
+        cardsToMove = m_stackTransferStateTracker.cardsToMove;
+        std::reverse(cardsToMove.begin(), cardsToMove.end());
+    }
+    else if (m_stackTransferStateTracker.transferType == StackTransferType::CUT)
+    {
+
+    }
+    else
+    {
+        std::cerr << "Stack transfer is not of any recognised type" << std::endl;
+    }
+    if (!m_stackTransferStateTracker.randomSource)
+    {
+        for(Card c : cardsToMove)
+        {
+            auto cardIt = std::find_if(
+                    sourceStack->cards.begin(),
+                    sourceStack->cards.end(),
+                    [&c](const Card& b) {return c.UUID == b.UUID;}
+            );
+
+            if (cardIt == sourceStack->cards.end())
+            {
+                throw VMError("Irreconsilable Error. Player has picked a card to move, that isn't available in the source stack.");
+            }
+
+            sourceStack->cards.erase(cardIt);
+        }
+    }
+
+    auto insertPosition = destinationStack->cards.begin();
+    if (m_stackTransferStateTracker.dstTop)
+    {
+        insertPosition = destinationStack->cards.end();
+    }
+    destinationStack->cards.insert(insertPosition, cardsToMove.begin(), cardsToMove.end());
+
+    std::vector<int> cardsTakenForCallbackReport(cardsToMove.size());
+
+    for (const Card& c : cardsToMove)
+    {
+        cardsTakenForCallbackReport.push_back(c.UUID);
+    }
+
+    call_stack_move_callback(
+        sourceStack->ID,
+        destinationStack->ID,
+        m_stackTransferStateTracker.srcTop,
+        m_stackTransferStateTracker.dstTop,
+        cardsTakenForCallbackReport.data(),
+        (int) cardsTakenForCallbackReport.size()
+    );
+
+    return true;
+}
+
 int Program::run(Opcode code, bool load)
 {
 	if (code.type == OpcodeType::GAME_BLK_HEADER)
@@ -941,432 +963,193 @@ int Program::run(Opcode code, bool load)
 		
 		m_current_opcode_index = m_phase_indexes[block_name];
 	}
-    else if (code.type == OpcodeType::STACK_CUT_SOURCE_TOP || code.type == OpcodeType::STACK_CUT_SOURCE_BOTTOM)
+    /*
+     * --
+     * STACK_TRANSFER
+     * --
+     * SOURCE CHOOSE | IDENTIFIER
+     * --
+     * IDENTIFIER(S)
+     * --
+     * STACK_SOURCE_LOCATION
+     * --
+     * source location TOP/BOTTOM/CHOOSE
+     * --
+     * FACTOR (number to take)
+     * --
+     * OPERATION: MOVE/CUT
+     * --
+     * DESTINATION_STACK
+     * --
+     * TARGET IDENTIFIER | CHOOSE
+     * --
+     * IDENTIFIER(S)
+     * --
+     * STACK_DESTINATION_LOCATION
+     * --
+     * TARGET LOCATION: TOP/BOTTOM
+     */
+    else if (code.type == OpcodeType::STACK_TRANSFER)
     {
-        m_current_opcode_index++;
-        vector<string> source_name;
-        read_name(source_name, m_opcodes[m_current_opcode_index].type);
-        
-        auto destination_opcode_type = m_opcodes[m_current_opcode_index].type;
-        m_current_opcode_index++;
-        
-        vector<string> dest_name;
-        read_name(dest_name, m_opcodes[m_current_opcode_index].type);
-        int move_amount = resolve_number_expression();
-        
-        Stack* source = get_stack_ptr(source_name);
-        Stack* dst = get_stack_ptr(dest_name);
-        
-        vector<Card> cardsTaken;
-        move_amount = std::min((int)source->cards.size(), move_amount);
-        
-        if (code.type == OpcodeType::STACK_CUT_SOURCE_TOP)
-        {
-            cardsTaken.insert(cardsTaken.begin(), source->cards.end()-move_amount, source->cards.end());
-            
-            source->cards.erase(source->cards.end()-move_amount, source->cards.end());
-        }
-        else
-        {
-            cardsTaken.insert(cardsTaken.begin(), source->cards.begin(), source->cards.begin()+move_amount);
-            
-            source->cards.erase(source->cards.begin(), source->cards.begin()+move_amount);
-        }
-        
-        if (destination_opcode_type == OpcodeType::STACK_CUT_DEST_TOP)
-        {
-            dst->cards.insert(dst->cards.end(), cardsTaken.begin(), cardsTaken.end());
-        }
-        else
-        {
-            dst->cards.insert(dst->cards.begin(), cardsTaken.begin(), cardsTaken.end());
-        }
-        
-        int forCallbackReport_src = source->ID;
-        int forCallbackReport_dst = dst->ID;
-        bool forCallbackReport_destTop = destination_opcode_type == OpcodeType::STACK_CUT_DEST_TOP;
-        vector<int> forCallbackReport_cardsTaken;
-        for (Card c : cardsTaken)
-        {
-            forCallbackReport_cardsTaken.push_back(c.UUID);
-        }
-        
-        call_stack_move_callback(forCallbackReport_src, forCallbackReport_dst, true, forCallbackReport_destTop, forCallbackReport_cardsTaken.data(), (int)forCallbackReport_cardsTaken.size());
-        
-    }
-    else if (code.type == OpcodeType::STACK_CUT_SOURCE_CHOOSE)
-    {
-        m_current_opcode_index++;
-        vector<string> source_name;
-        read_name(source_name, m_opcodes[m_current_opcode_index].type);
-        
-        auto destination_opcode_type = m_opcodes[m_current_opcode_index].type;
-        m_current_opcode_index++;
-        
-        vector<string> dest_name;
-        read_name(dest_name, m_opcodes[m_current_opcode_index].type);
-        
-        Stack* source = get_stack_ptr(source_name);
-        Stack* dst = get_stack_ptr(dest_name);
-        
-        CardInputWait inputWait;
-        bool topDest = destination_opcode_type == OpcodeType::STACK_CUT_DEST_TOP;
-        inputWait.type = InputOperationType::CUT;
-        inputWait.srcStackID = source->ID;
-        inputWait.dstStackID = dst->ID;
-        inputWait.dstTop = topDest;
-        m_card_input_wait = inputWait;
-        
-        if (source->cards.size() > 0)
-        {
-            m_waitingForUserInteraction = true;
-            return RUN_WAITING_FOR_INTERACTION_RETURN;
-        }
-    }
-    else if (code.type == OpcodeType::STACK_CUT_SOURCE_CHOICE_GATHER)
-    {
-        int forCallbackReport_src = m_card_input_wait.srcStackID;
-        int forCallbackReport_dst = m_card_input_wait.dstStackID;
-        bool forCallbackReport_destTop = m_card_input_wait.dstTop;
-        vector<int> forCallbackReport_cardsTaken;
-        
-        Stack* src = &m_game.stacks[m_card_input_wait.srcStackID];
-        Stack* dst = &m_game.stacks[m_card_input_wait.dstStackID];
-        
-        vector<Card> cardsTaken;
-        for(int i=m_card_input_wait.cutPoint; i<src->cards.size(); i++)
-        {
-            cardsTaken.push_back(src->cards[i]);
-            forCallbackReport_cardsTaken.push_back(src->cards[i].UUID);
-        }
-        
-        if (m_card_input_wait.dstTop)
-        {
-            dst->cards.insert(dst->cards.end(), cardsTaken.begin(), cardsTaken.end());
-        }
-        else
-        {
-            dst->cards.insert(dst->cards.begin(), cardsTaken.begin(), cardsTaken.end());
-        }
-        
-        src->cards.erase(src->cards.begin() + m_card_input_wait.cutPoint, src->cards.end());
-        
-        call_stack_move_callback(
-          forCallbackReport_src,
-          forCallbackReport_dst,
-          true,
-          forCallbackReport_destTop,
-          forCallbackReport_cardsTaken.data(),
-          (int)forCallbackReport_cardsTaken.size()
-        );
-        
-        m_card_input_wait = CardInputWait();
-        
-        m_current_opcode_index ++;
-        
-    }
-    else if (code.type == OpcodeType::STACK_SOURCE_CHOOSE)
-    {
-        m_current_opcode_index++;
-        vector<string> source_name;
-        read_name(source_name, m_opcodes[m_current_opcode_index].type);
-
-        auto destination_opcode_type = m_opcodes[m_current_opcode_index].type;
+        m_stackTransferStateTracker = StackTransferStateTracker();
+        m_stackTransferStateTracker.complete = false;
         m_current_opcode_index++;
 
-        vector<string> dest_name;
-        read_name(dest_name, m_opcodes[m_current_opcode_index].type);
-        int move_amount = resolve_number_expression();
-        
-        
-
-        Stack* source = get_stack_ptr(source_name);
-        Stack* dst = get_stack_ptr(dest_name);
-        
-        move_amount = std::min(move_amount, (int)source->cards.size());
-        
-        bool topDest = destination_opcode_type == OpcodeType::STACK_DEST_TOP;
-        
-        CardInputWait waitStruct;
-        waitStruct.type = InputOperationType::MOVE;
-        waitStruct.nExpected = move_amount;
-        waitStruct.cardsToMove = {};
-        waitStruct.srcStackID = source->ID;
-        waitStruct.dstStackID = dst->ID;
-        waitStruct.dstTop = topDest;
-        m_card_input_wait = waitStruct;
-        
-        if (move_amount > 0)
+        auto sourceOpcode = m_opcodes[m_current_opcode_index];
+        if (sourceOpcode.type == OpcodeType::CHOOSE)
         {
-            m_waitingForUserInteraction = true;
-            return RUN_WAITING_FOR_INTERACTION_RETURN;
-        }
-    }
-    else if (code.type == OpcodeType::STACK_MOVE_SOURCE_TOP_MULTI || code.type == OpcodeType::STACK_MOVE_SOURCE_BOTTOM_MULTI)
-    {
-        int i = 0;
-        std::vector<int> source_ids_to_select_from;
-        m_current_opcode_index++;
-        while (m_opcodes[m_current_opcode_index].type == OpcodeType::L_VALUE_DOT_SEPERATED_REF_CHAIN || m_opcodes[m_current_opcode_index].type == OpcodeType::L_VALUE)
-        {
-            std::vector<std::string> current_name;
-            read_name(current_name, m_opcodes[m_current_opcode_index+i].type);
-            Attr* stackName = this->get_attr_ptr(current_name);
-            source_ids_to_select_from.push_back(stackName->stackRef);
-        }
-
-        m_card_input_wait = CardInputWait();
-        m_card_input_wait.type = InputOperationType::CHOOSE_SOURCE;
-        m_card_input_wait.srcStackID = -1;
-        m_card_input_wait.sourceStackSelectionPool = source_ids_to_select_from;
-        m_card_input_wait.srcTop = code.type == OpcodeType::STACK_MOVE_SOURCE_TOP_MULTI;
-        m_waitingForUserInteraction = true;
-        return RUN_WAITING_FOR_INTERACTION_RETURN;
-    }
-    else if (code.type == OpcodeType::STACK_MOVE_SOURCE_MULTI_GATHER)
-    {
-        Stack* src = &m_game.stacks[m_card_input_wait.srcStackID];
-        m_current_opcode_index ++;
-
-        auto destOpcode = m_opcodes[m_current_opcode_index];
-        m_current_opcode_index++;
-        std::vector<std::string> destStackName;
-        read_name(destStackName, m_opcodes[m_current_opcode_index].type);
-        int cardsToMove = resolve_number_expression();
-        bool toTop = destOpcode.type == OpcodeType::STACK_DEST_TOP;
-        Attr* stackDestination = get_attr_ptr(destStackName);
-        Stack* dst = &game().stacks[stackDestination->stackRef];
-
-        vector<Card> cardsTaken;
-        if (m_card_input_wait.srcTop)
-        {
-            auto sourceTop= game().stacks[m_card_input_wait.srcStackID].cards.end();
-            auto sourceLastCard = sourceTop - cardsToMove;
-
-            cardsTaken = std::vector(sourceLastCard, sourceTop);
-            game().stacks[m_card_input_wait.srcStackID].cards.erase(sourceLastCard, sourceTop);
-        }
-        else
-        {
-            auto sourceBottom = game().stacks[m_card_input_wait.srcStackID].cards.begin();
-            auto sourceLastCard = sourceBottom + cardsToMove;
-
-            cardsTaken = std::vector(sourceBottom, sourceLastCard);
-            game().stacks[m_card_input_wait.srcStackID].cards.erase(sourceBottom, sourceLastCard);
-        }
-
-        std::reverse(cardsTaken.begin(), cardsTaken.end());
-
-        if (toTop)
-        {
-            dst->cards.insert(dst->cards.end(), cardsTaken.begin(), cardsTaken.end());
-        }
-        else
-        {
-            dst->cards.insert(dst->cards.begin(), cardsTaken.begin(), cardsTaken.end());
-        }
-
-        vector<int> cardsTakenIDs;
-        for (Card c : cardsTaken)
-        {
-            cardsTakenIDs.push_back(c.UUID);
-        }
-
-        call_stack_move_callback(
-                m_card_input_wait.srcStackID,
-                dst->ID,
-                m_card_input_wait.srcTop,
-                toTop,
-                cardsTakenIDs.data(),
-                cardsTakenIDs.size()
-        );
-
-        m_waitingForUserInteraction = false;
-        m_card_input_wait = CardInputWait();
-    }
-    else if (code.type == OpcodeType::STACK_SOURCE_CHOICE_GATHER)
-    {
-        int forCallbackReport_src = m_card_input_wait.srcStackID;
-        int forCallbackReport_dst = m_card_input_wait.dstStackID;
-        bool forCallbackReport_destTop = m_card_input_wait.dstTop;
-        
-        Stack* src = &m_game.stacks[m_card_input_wait.srcStackID];
-        Stack* dst = &m_game.stacks[m_card_input_wait.dstStackID];
-
-        if (m_card_input_wait.dstTop)
-        {
-            forCallbackReport_destTop = true;
-            dst->cards.insert(
-                dst->cards.end(),
-                m_card_input_wait.cardsToMove.begin(),
-                m_card_input_wait.cardsToMove.end()
-            );
-        }
-        else
-        {
-            forCallbackReport_destTop = false;
-            dst->cards.insert(
-                dst->cards.begin(),
-                m_card_input_wait.cardsToMove.begin(),
-                m_card_input_wait.cardsToMove.end()
-            );
-        }
-        
-        std::vector<int> cardsTakenForCallbackReport;
-        
-        for(Card c : m_card_input_wait.cardsToMove)
-        {
-            auto cardIt = std::find_if(
-                src->cards.begin(),
-                src->cards.end(),
-                [&c](const Card& b) {return c.UUID == b.UUID;}
-            );
-            
-            if (cardIt == src->cards.end())
+            std::vector<int> source_ids_to_select_from;
+            m_current_opcode_index++;
+            while (m_opcodes[m_current_opcode_index].type == OpcodeType::L_VALUE_DOT_SEPERATED_REF_CHAIN
+                || m_opcodes[m_current_opcode_index].type == OpcodeType::L_VALUE)
             {
-                throw VMError("Irreconsilable Error. Player has picked a card to move, that isn't available in the source stack.");
+                std::vector<std::string> current_name;
+                read_name(current_name, m_opcodes[m_current_opcode_index].type);
+                Attr* stackName = this->get_attr_ptr(current_name);
+                source_ids_to_select_from.push_back(stackName->stackRef);
             }
-            
-            src->cards.erase(cardIt);
-            
-            cardsTakenForCallbackReport.push_back(c.UUID);
+
+            m_stackTransferStateTracker.sourceStackSelectionPool = source_ids_to_select_from;
+            m_stackTransferStateTracker.type = InputOperationType::CHOOSE_SOURCE;
+            m_waitingForUserInteraction = true;
+            return RUN_WAITING_FOR_INTERACTION_RETURN;
         }
-        
-        call_stack_move_callback(
-            forCallbackReport_src,
-            forCallbackReport_dst,
-            false,
-            forCallbackReport_destTop,
-            cardsTakenForCallbackReport.data(),
-            (int)cardsTakenForCallbackReport.size()
-        );
-        
-        m_card_input_wait = CardInputWait();
-        
+        else if (sourceOpcode.type == OpcodeType::IDENTIFIER)
+        {
+            m_current_opcode_index++;
+            std::vector<std::string> sourceIdentifier;
+            read_name(sourceIdentifier, m_opcodes[m_current_opcode_index].type);
+            Attr* stackName = this->get_attr_ptr(sourceIdentifier);
+            m_stackTransferStateTracker.srcStackID = stackName->stackRef;
+        }
+        else if (sourceOpcode.type == OpcodeType::RANDOM)
+        {
+            m_current_opcode_index++;
+            vector<string> card_type;
+            read_name(card_type, m_opcodes[m_current_opcode_index].type);
+
+            assert(card_type.size() == 1);
+            m_stackTransferStateTracker.randomSource = true;
+            m_stackTransferStateTracker.randomSourceParentCard = card_type[0];
+        }
+    }
+    else if (code.type == OpcodeType::STACK_SOURCE_LOCATION) {
+        m_waitingForUserInteraction = false;
+        m_current_opcode_index++;
+        if (m_opcodes[m_current_opcode_index].type == OpcodeType::CHOOSE) {
+            m_current_opcode_index++;
+            int numberToTake = resolve_number_expression();
+            // srcTop is true, but it's only set for consistancy.
+            // it doesn't matter when you're choosing cards
+            m_stackTransferStateTracker.srcTop = true;
+            m_stackTransferStateTracker.nExpected = numberToTake;
+            m_stackTransferStateTracker.type = InputOperationType::CHOOSE_CARDS_FROM_SOURCE;
+            if(m_opcodes[m_current_opcode_index].type == OpcodeType::MOVE)
+            {
+                m_stackTransferStateTracker.transferType = StackTransferType::MOVE;
+            }
+            else if (m_opcodes[m_current_opcode_index].type == OpcodeType::CUT)
+            {
+                m_stackTransferStateTracker.transferType = StackTransferType::CUT;
+            }
+            m_current_opcode_index++;
+
+            if (m_game.stacks[m_stackTransferStateTracker.srcStackID].cards.empty())
+            {
+                return 0;
+            }
+
+            m_waitingForUserInteraction = true;
+            return RUN_WAITING_FOR_INTERACTION_RETURN;
+        }
+        if (m_opcodes[m_current_opcode_index].type == OpcodeType::TOP) {
+            m_stackTransferStateTracker.srcTop = true;
+        } else if (m_opcodes[m_current_opcode_index].type == OpcodeType::BOTTOM) {
+            m_stackTransferStateTracker.srcTop = false;
+        }
+
+        m_current_opcode_index++;
+        int numberToTake = resolve_number_expression();
+
+        auto sourceStack = m_game.stacks[m_stackTransferStateTracker.srcStackID];
+        if (!m_stackTransferStateTracker.randomSource)
+        {
+            numberToTake = std::min(numberToTake, (int)sourceStack.cards.size());
+            vector<Card> cardsTaken;
+            if (m_stackTransferStateTracker.srcTop)
+            {
+                cardsTaken = vector(sourceStack.cards.end()-numberToTake, sourceStack.cards.end());
+            }
+            else
+            {
+                cardsTaken = vector(sourceStack.cards.begin(), sourceStack.cards.begin() + numberToTake);
+            }
+
+            m_stackTransferStateTracker.cardsToMove = cardsTaken;
+        }
+
+        m_stackTransferStateTracker.nExpected = numberToTake;
+
+        if(m_opcodes[m_current_opcode_index].type == OpcodeType::MOVE)
+        {
+            m_stackTransferStateTracker.transferType = StackTransferType::MOVE;
+        }
+        else if (m_opcodes[m_current_opcode_index].type == OpcodeType::CUT)
+        {
+            m_stackTransferStateTracker.transferType = StackTransferType::CUT;
+            m_stackTransferStateTracker.cutPoint = numberToTake;
+        }
         m_current_opcode_index++;
 
     }
-	else if (code.type == OpcodeType::STACK_SOURCE_RANDOM_CARD_TYPE)
-	{
-		m_current_opcode_index++;
-		vector<string> card_type;
-		read_name(card_type, m_opcodes[m_current_opcode_index].type);
+    else if (code.type == OpcodeType::DESTINATION_STACK)
+    {
+        m_waitingForUserInteraction = false;
+        m_current_opcode_index++;
+        if (m_opcodes[m_current_opcode_index].type == OpcodeType::CHOOSE)
+        {
+            std::vector<int> dest_ids_to_select_from;
+            m_current_opcode_index++;
+            while (m_opcodes[m_current_opcode_index].type == OpcodeType::L_VALUE_DOT_SEPERATED_REF_CHAIN
+                   || m_opcodes[m_current_opcode_index].type == OpcodeType::L_VALUE)
+            {
+                std::vector<std::string> current_name;
+                read_name(current_name, m_opcodes[m_current_opcode_index].type);
+                Attr* stackName = this->get_attr_ptr(current_name);
+                dest_ids_to_select_from.push_back(stackName->stackRef);
+            }
 
-		assert(card_type.size() == 1);
+            m_stackTransferStateTracker.destinationStackSelectionPool = dest_ids_to_select_from;
+            m_stackTransferStateTracker.type = InputOperationType::CHOOSE_DESTINATION;
+            m_waitingForUserInteraction = true;
+            return RUN_WAITING_FOR_INTERACTION_RETURN;
+        }
+        else if (m_opcodes[m_current_opcode_index].type == OpcodeType::IDENTIFIER)
+        {
+            m_current_opcode_index++;
+            std::vector<std::string> destinationIdentifier;
+            read_name(destinationIdentifier, m_opcodes[m_current_opcode_index].type);
+            Attr* stackName = this->get_attr_ptr(destinationIdentifier);
+            m_stackTransferStateTracker.dstStackID = stackName->stackRef;
+        }
+    }
+    else if (code.type == OpcodeType::STACK_DESTINATION_LOCATION)
+    {
+        m_waitingForUserInteraction = false;
+        m_current_opcode_index ++;
+        if (m_opcodes[m_current_opcode_index].type == OpcodeType::TOP)
+        {
+            m_stackTransferStateTracker.dstTop = true;
+        }
+        else if (m_opcodes[m_current_opcode_index].type == OpcodeType::BOTTOM)
+        {
+            m_stackTransferStateTracker.dstTop = false;
+        }
 
-		auto destination_opcode_type = m_opcodes[m_current_opcode_index].type;
-		m_current_opcode_index++;
-		
-		vector<string> destination_stack_identifier;
-		read_name(destination_stack_identifier, m_opcodes[m_current_opcode_index].type);
-		int move_amount = resolve_number_expression();
-
-		Stack* dst = get_stack_ptr(destination_stack_identifier);
-		auto matching_cards = m_game.get_cards_of_type(card_type[0]);
-		
-		vector<Card> cardsTaken;
-		for (int i = 0; i < move_amount; i++)
-		{
-			cardsTaken.push_back(m_game.GenerateCard(matching_cards[rand() % matching_cards.size()].name));
-		}
-
-		if (destination_opcode_type == OpcodeType::STACK_DEST_TOP)
-		{
-			std::reverse(cardsTaken.begin(), cardsTaken.end());
-			dst->cards.insert(dst->cards.end(), cardsTaken.begin(), cardsTaken.end());
-		}
-		else if (destination_opcode_type == OpcodeType::STACK_DEST_BOTTOM)
-		{
-			dst->cards.insert(dst->cards.begin(), cardsTaken.begin(), cardsTaken.end());
-		}
-	}
-	else if (code.type == OpcodeType::STACK_SOURCE_TOP || code.type == OpcodeType::STACK_SOURCE_BOTTOM)
-	{
-		m_current_opcode_index++;
-		vector<string> source_name;
-		read_name(source_name, m_opcodes[m_current_opcode_index].type);
-
-		auto destination_opcode_type = m_opcodes[m_current_opcode_index].type;
-		m_current_opcode_index++;
-
-		vector<string> dest_name;
-		read_name(dest_name, m_opcodes[m_current_opcode_index].type);
-		int move_amount = resolve_number_expression();
-
-		Stack* source = get_stack_ptr(source_name);
-		Stack* dst = get_stack_ptr(dest_name);
-
-		vector<Card> cardsTaken;
-
-		vector<int> forCallbackReport_cardsTaken;
-		bool forCallbackReport_sourceTop = false;
-		bool forCallbackReport_destTop = false;
-		int forCallbackReport_src = source->ID;
-		int forCallbackReport_dst = dst->ID;
-
-		if (code.type == OpcodeType::STACK_SOURCE_BOTTOM)
-		{
-			forCallbackReport_sourceTop = false;
-			int limit = std::min(
-				static_cast<int>(source->cards.size()),
-				move_amount
-			);
-
-			auto start = source->cards.end() - limit;
-			auto end = source->cards.end();
-
-			cardsTaken = vector<Card>(start, end);
-			source->cards.erase(start, end);
-
-			/**
-			 * the code that takes the cards and puts them in the new stack
-			 * assumes that the 'backmost' card is the one you
-			 * would take first, whether from the bottom, or the top,
-			 * so cardsTaken must be reversed in this case
-			*/
-			std::reverse(cardsTaken.begin(), cardsTaken.end());
-		}
-		else if (code.type == OpcodeType::STACK_SOURCE_TOP)
-		{
-			forCallbackReport_sourceTop = true;
-			int limit = std::min(
-				static_cast<int>(source->cards.size()),
-				move_amount
-			);
-
-			auto start = source->cards.end() - limit;
-			auto end = source->cards.end();
-
-			cardsTaken = vector<Card>(start, end);
-			source->cards.erase(start, end);
-		}
-
-		if (destination_opcode_type == OpcodeType::STACK_DEST_TOP)
-		{
-			forCallbackReport_destTop = true;
-			std::reverse(cardsTaken.begin(), cardsTaken.end());
-			dst->cards.insert(dst->cards.end(), cardsTaken.begin(), cardsTaken.end());
-		}
-		else if (destination_opcode_type == OpcodeType::STACK_DEST_BOTTOM)
-		{
-			forCallbackReport_destTop = false;
-			dst->cards.insert(dst->cards.begin(), cardsTaken.begin(), cardsTaken.end());
-		}
-
-		for (Card c : cardsTaken)
-		{
-			forCallbackReport_cardsTaken.push_back(c.UUID);
-		}
-
-		call_stack_move_callback(
-			forCallbackReport_src,
-			forCallbackReport_dst,
-			forCallbackReport_sourceTop,
-			forCallbackReport_destTop,
-			forCallbackReport_cardsTaken.data(),
-			(int)forCallbackReport_cardsTaken.size()
-		);
-	}
+        m_stackTransferStateTracker.complete = true;
+        CompleteStackTransfer(m_stackTransferStateTracker);
+        m_current_opcode_index ++;
+    }
 	else if (code.type == OpcodeType::ATTR_DECL)
 	{
 		m_current_opcode_index++;
@@ -2345,16 +2128,16 @@ bool Program::AddCardToWaitingInput(Card c)
         return false;
     }
     
-    if(m_card_input_wait.cardsToMove.size() >= m_card_input_wait.nExpected )
+    if(m_stackTransferStateTracker.cardsToMove.size() >= m_stackTransferStateTracker.nExpected )
     {
         // we shouldn't get here, but deal with it anyway
         m_waitingForUserInteraction = false;
         return false;
     }
     
-    m_card_input_wait.cardsToMove.push_back(c);
+    m_stackTransferStateTracker.cardsToMove.push_back(c);
     
-    if(m_card_input_wait.cardsToMove.size() >= m_card_input_wait.nExpected )
+    if(m_stackTransferStateTracker.cardsToMove.size() >= m_stackTransferStateTracker.nExpected )
     {
         m_waitingForUserInteraction = false;
     }
