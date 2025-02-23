@@ -198,19 +198,6 @@ TEST(ParserTest, CutTest)
     EXPECT_EQ(tokens[4].type, Battler::TokenType::number);
 }
 
-TEST(ExpressionTest, CutTest)
-{
-    std::string line = "a /> b top 5";
-    
-    Battler::Program p;
-    p._Parse({line});
-    auto tokens = p._Tokens();
-    auto tokensBegin = tokens.begin();
-    Battler::Expression expr = Battler::GetExpression(tokensBegin, tokens.end());
-    
-    EXPECT_EQ(expr.children.size(), 2);
-}
-
 TEST(CompilerTest, CutTest)
 {
     std::string line = "a /> b top 5";
@@ -242,7 +229,7 @@ TEST(EndToEndTests, ChooseCutTest)
             "end",
         
             "turn start",
-                "choose a /> b",
+                "choose a /> b top",
             "end",
         
         "end"
@@ -260,16 +247,15 @@ TEST(EndToEndTests, ChooseCutTest)
     
     EXPECT_TRUE(p.m_waitingForUserInteraction);
     
-    Battler::CardInputWait waiting = p.m_card_input_wait;
-    EXPECT_EQ(waiting.type, Battler::InputOperationType::CUT);
+    Battler::StackTransferStateTracker waiting = p.m_stackTransferStateTracker;
+    EXPECT_EQ(waiting.type, Battler::InputOperationType::CHOOSE_CARDS_FROM_SOURCE);
+    EXPECT_EQ(waiting.transferType, Battler::StackTransferType::CUT);
     EXPECT_EQ(waiting.fixedDest, true);
     EXPECT_EQ(waiting.fixedSrc, true);
     EXPECT_EQ(waiting.srcStackID, 0);
-    EXPECT_EQ(waiting.dstStackID, 1);
-    EXPECT_EQ(waiting.dstTop, true);
-    EXPECT_EQ(waiting.nExpected, 0);
+    EXPECT_EQ(waiting.nExpected, -1);
     
-    p.m_card_input_wait.cutPoint = 10;
+    p.m_stackTransferStateTracker.cutPoint = 10;
     p.RunTurn(true);
     
     EXPECT_EQ(p.game().stacks[0].cards.size(), 10);
@@ -291,26 +277,83 @@ TEST(ParserTest, CutTestChoose)
     EXPECT_EQ(tokens[3].type, Battler::TokenType::name);
 }
 
-TEST(ExpressionTest, CutTestChoose)
-{
-    std::string line = "choose a /> b";
-    
-    Battler::Program p;
-    p._Parse({line});
-    auto tokens = p._Tokens();
-    auto tokensBegin = tokens.begin();
-    Battler::Expression expr = Battler::GetExpression(tokensBegin, tokens.end());
-    
-    EXPECT_EQ(expr.children.size(), 2);
-    EXPECT_EQ(expr.children[1].children.size(), 1);
-    EXPECT_EQ(expr.children[1].type, Battler::ExpressionType::STACK_CUT_SOURCE_TOP);
-}
-
 TEST(CompilerTest, CutTestChoose)
 {
-    std::string line = "choose a /> b";
+    std::string line = "choose a /> b top";
     
     Battler::Program p;
     p.Compile({line});
     std::vector<Battler::Opcode> opcodes = p.opcodes();
+    // TODO: this test isn't tesing anything
+}
+
+TEST(EndToEndTests, MoveFromSelection)
+{
+    auto lines = std::vector<std::string>() = {
+    "game Test start",
+        "players 1"
+        "card Parent start",
+            "int health",
+            "int attack",
+        "end",
+        "card Child Parent start",
+            "health = 15",
+            "int defence",
+        "end",
+
+        "visiblestack a",
+        "visiblestack b",
+        "visiblestack c",
+
+        "setup start",
+            "random Parent -> a top 20",
+            "random Parent -> b top 20",
+            "random Parent -> c top 1"
+        "end",
+
+        "turn start",
+            "a,b -> c top 1",
+            "a,b ->_ c bottom 2",
+        "end",
+
+    "end"
+    };
+
+    Battler::Program p;
+    p.Compile(lines);
+    p.Run(true);
+    p.RunSetup();
+    p.RunTurn();
+
+    EXPECT_TRUE(p.m_waitingForUserInteraction);
+    EXPECT_EQ(p.m_stackTransferStateTracker.type, Battler::InputOperationType::CHOOSE_SOURCE);
+    EXPECT_EQ(p.m_stackTransferStateTracker.sourceStackSelectionPool.size(), 2);
+    EXPECT_EQ(p.m_stackTransferStateTracker.sourceStackSelectionPool[0], 0);
+    EXPECT_EQ(p.m_stackTransferStateTracker.sourceStackSelectionPool[1], 1);
+    p.m_stackTransferStateTracker.srcStackID = 1;
+    p.m_waitingForUserInteraction = false;
+
+    EXPECT_EQ(p.game().stacks[0].cards.size(), 20);
+    EXPECT_EQ(p.game().stacks[1].cards.size(), 20);
+    EXPECT_EQ(p.game().stacks[2].cards.size(), 1);
+    Battler::Card cardToMove = *(p.game().stacks[1].cards.end()-1);
+    p.RunTurn(true);
+    EXPECT_EQ(p.game().stacks[0].cards.size(), 20);
+    EXPECT_EQ(p.game().stacks[1].cards.size(), 19);
+    EXPECT_EQ(p.game().stacks[2].cards.size(), 2);
+    EXPECT_EQ((p.game().stacks[2].cards.end()-1)->UUID, cardToMove.UUID);
+
+    EXPECT_TRUE(p.m_waitingForUserInteraction);
+    EXPECT_FALSE(p.m_stackTransferStateTracker.srcTop);
+    EXPECT_EQ(p.m_stackTransferStateTracker.type, Battler::InputOperationType::CHOOSE_SOURCE);
+    EXPECT_EQ(p.m_stackTransferStateTracker.sourceStackSelectionPool.size(), 2);
+    EXPECT_EQ(p.m_stackTransferStateTracker.sourceStackSelectionPool[0], 0);
+    EXPECT_EQ(p.m_stackTransferStateTracker.sourceStackSelectionPool[1], 1);
+    p.m_stackTransferStateTracker.srcStackID = 0;
+    Battler::Card newCardToBeOnTheBottom = p.game().stacks[0].cards[1];
+    p.RunTurn(true);
+    EXPECT_EQ(p.game().stacks[0].cards.size(), 18);
+    EXPECT_EQ(p.game().stacks[1].cards.size(), 19);
+    EXPECT_EQ(p.game().stacks[2].cards.size(), 4);
+    EXPECT_EQ(p.game().stacks[2].cards.begin()->UUID, newCardToBeOnTheBottom.UUID);
 }

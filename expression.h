@@ -44,11 +44,14 @@ namespace Battler {
         SETUP_DECLARATION,
         FOREACHPLAYER_DECLARATION,
         FOREACHPLAYER_IDENTIFIER_DECLARATION,
+        STACK_TRANSFER, // General expression for stack move and cut operations
         STACK_MOVE,
         STACK_MOVE_UNDER,
         STACK_MOVE_SOURCE,
+        STACK_MOVE_SOURCE_MULTI,
         STACK_MOVE_RANDOM_SOURCE,
         STACK_MOVE_CHOOSE_SOURCE,
+        STACK_MOVE_CHOOSE_SOURCE_MULTI,
         STACK_CUT_CHOOSE_SOURCE,
         STACK_CUT_SOURCE,
         STACK_CUT,
@@ -94,8 +97,7 @@ namespace Battler {
     Expression GetSetupExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end);
     Expression GetForEachPlayerExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end);
     Expression GetStackMoveSourceExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end);
-    Expression GetStackMoveTargetExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end);
-    Expression GetMoveExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end, std::vector<Token>::iterator& leftAccumulationStart, ExpressionType moveType);
+    Expression GetStackMoveTargetExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end, bool requirePosition=true, bool requireAmount=true);
     Expression GetPhaseDeclarationExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end);
     Expression GetOnPlaceExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end);
     Expression GetIfExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end);
