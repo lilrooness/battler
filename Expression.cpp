@@ -309,8 +309,20 @@ namespace Battler {
 
         Expression expr;
 
-        auto stackIdentifierTokens = GetIdentifierTokens(current, end);
-        Expression stackIdentifierExpr(ExpressionType::IDENTIFIER, std::move(stackIdentifierTokens));
+//        auto stackIdentifierTokens = GetIdentifierTokens(current, end);
+        std::vector<Token> targetIdentifierTokens = GetIdentifierTokensFromCommaSeperatedList(current, end);
+
+        bool hasMultipleIdentifiers = false;
+
+        for (Token t : targetIdentifierTokens)
+        {
+            if (t.type == TokenType::comma)
+            {
+                hasMultipleIdentifiers = true;
+                break;
+            }
+        }
+        Expression stackIdentifierExpr(ExpressionType::IDENTIFIER, std::move(targetIdentifierTokens));
 
         if (requirePosition)
         {
@@ -329,7 +341,20 @@ namespace Battler {
             expr.tokens.push_back(*current);
         }
 
+        if (hasMultipleIdentifiers)
+        {
+            if (expr.type == ExpressionType::STACK_SOURCE_TOP)
+            {
+                expr.type = ExpressionType::STACK_SOURCE_TOP_DESTINATION_MULTI;
+            }
+            else if (expr.type == ExpressionType::STACK_SOURCE_BOTTOM)
+            {
+                expr.type = ExpressionType::STACK_SOURCE_BOTTOM_DESTINATION_MULTI;
+            }
+        }
+
         expr.children.push_back(std::move(stackIdentifierExpr));
+
 
         if (requireAmount)
         {
