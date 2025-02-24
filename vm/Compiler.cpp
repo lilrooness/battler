@@ -418,19 +418,20 @@ void Program::compile_expression(Expression expr)
                     sourceLocationOpcode.type = OpcodeType::BOTTOM;
                 }
                 targetStackOpcode.type = OpcodeType::IDENTIFIER;
-            } else if (targetStackExpr.type == ExpressionType::STACK_CUT_SOURCE_TOP)
+            }
+            else if (targetStackExpr.type == ExpressionType::STACK_SOURCE_TOP_DESTINATION_MULTI)
             {
                 if (sourceLocationOpcode.type != OpcodeType::CHOOSE) {
                     sourceLocationOpcode.type = OpcodeType::TOP;
                 }
-                targetStackOpcode.type = OpcodeType::IDENTIFIER;
+                targetStackOpcode.type = OpcodeType::CHOOSE;
             }
-            else if (targetStackExpr.type == ExpressionType::STACK_CUT_SOURCE_BOTTOM)
+            else if (targetStackExpr.type == ExpressionType::STACK_SOURCE_BOTTOM_DESTINATION_MULTI)
             {
                 if (sourceLocationOpcode.type != OpcodeType::CHOOSE) {
                     sourceLocationOpcode.type = OpcodeType::BOTTOM;
                 }
-                targetStackOpcode.type = OpcodeType::IDENTIFIER;
+                targetStackOpcode.type = OpcodeType::CHOOSE;
             }
         }
 
@@ -467,7 +468,7 @@ void Program::compile_expression(Expression expr)
         m_opcodes.push_back(targetStackOpcode);
         if (targetStackOpcode.type == OpcodeType::CHOOSE)
         {
-            auto names = get_identifiers_from_flat_comma_seperated_tokens_vector(sourceStackExpr.tokens);
+            auto names = get_identifiers_from_flat_comma_seperated_tokens_vector(targetStackExpr.children[0].tokens);
             for (auto name : names)
             {
                 compile_name(name, NAME_IS_LVALUE);
