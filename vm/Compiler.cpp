@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "../Compiler.h"
 
 #include "../expression.h"
