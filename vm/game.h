@@ -71,6 +71,8 @@ class AttrCont {
 
         Attr& Get(std::string name);
 
+        std::unordered_map<std::string, Attr>& GetAttrs() {return attrs;};
+
         std::string ToString(std::string prefix = "");
 
     private:
