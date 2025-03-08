@@ -486,7 +486,16 @@ namespace Battler {
 
     Expression GetWinnerIsExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end) {
 
-        Expression expr(ExpressionType::WINER_DECLARATION, { *current });
+        Expression expr(ExpressionType::WINNER_DECLARATION, { *current });
+        ensureNoEOF(++current, end);
+
+        expr.tokens = GetIdentifierTokens(current, end);
+
+        return expr;
+    }
+
+    Expression GetLooserIsExpression(std::vector<Token>::iterator& current, const std::vector<Token>::iterator end) {
+        Expression expr(ExpressionType::LOOSER_DECLARATION, { *current });
         ensureNoEOF(++current, end);
 
         expr.tokens = GetIdentifierTokens(current, end);
@@ -561,6 +570,9 @@ namespace Battler {
                 }
                 else if (current->text == "winneris") {
                     return GetWinnerIsExpression(current, end);
+                }
+                else if (current->text == "looseris") {
+                    return GetLooserIsExpression(current, end);
                 }
                 else if (current->text == "turn") {
                     return GetTurnExpression(current, end);

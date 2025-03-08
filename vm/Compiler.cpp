@@ -302,11 +302,18 @@ void Program::compile_expression(Expression expr)
 
 		m_opcodes.push_back(code);
 	}
-	else if (expr.type == ExpressionType::WINER_DECLARATION)
+	else if (expr.type == ExpressionType::WINNER_DECLARATION)
 	{
 		Opcode code;
 		code.type = OpcodeType::WINNER_DECL;
 		
+		m_opcodes.push_back(code);
+		compile_name(expr.tokens, NAME_IS_LVALUE);
+	}
+	else if (expr.type == ExpressionType::LOOSER_DECLARATION) {
+		Opcode code;
+		code.type = OpcodeType::LOOSER_DECL;
+
 		m_opcodes.push_back(code);
 		compile_name(expr.tokens, NAME_IS_LVALUE);
 	}
@@ -1331,6 +1338,21 @@ int Program::run(Opcode code, bool load)
 			throw VMError("You must declare a winner with a playerRef");
 		}
 		m_game.winner = attr.playerRef;
+	}
+	else if (code.type == OpcodeType::LOOSER_DECL)
+	{
+		m_current_opcode_index++;
+
+		vector<string> names;
+		read_name(names, m_opcodes[m_current_opcode_index].type);
+
+		Attr attr = get_attr_rvalue(names);
+		if (attr.type != AttributeType::PLAYER_REF)
+		{
+			throw VMError("You must declare a looser with a playerRef");
+		}
+
+		m_game.winner = 1000000000; // we probably will never have one billion players . . . right?
 	}
 	else
 	{

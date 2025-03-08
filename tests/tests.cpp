@@ -515,3 +515,24 @@ TEST(CompilerTest, Compare_stackPosref_Card)
     p.Run();
     EXPECT_EQ(p.game().stacks.begin()->second.cards.size(), 40);
 }
+
+TEST(CompilerTest, DeclareLooser)
+{
+    auto lines = std::vector<std::string>() =
+    {
+        "game test start",
+            // "players 1",
+            "setup start end",
+            "turn start",
+                "looseris currentPlayer",
+            "end",
+        "end"
+    };
+
+    Battler::Program p;
+    p.Compile(lines);
+    p.Run(true);
+    p.RunSetup();
+    p.RunTurn();
+    EXPECT_EQ(p.game().winner, 1000000000);
+}

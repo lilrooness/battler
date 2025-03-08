@@ -110,6 +110,7 @@ enum class OpcodeType
     ATTR_DATA,
     DO_DECL,
     WINNER_DECL,
+    LOOSER_DECL,
     
     // just in case we need it
     NO_OP,
