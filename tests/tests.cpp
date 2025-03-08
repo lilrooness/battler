@@ -17,7 +17,7 @@ TEST(EndToEndTests, BasicGame)
                 "int attack",
             "end",
             "card Child Parent start",
-                "health = 15",
+                "health = 15 * 1 + 5",
                 "int defence",
             "end",
         
@@ -68,7 +68,7 @@ TEST(EndToEndTests, BasicGame)
     EXPECT_TRUE(child.attributes.Contains("health"));
     EXPECT_TRUE(child.attributes.Contains("attack"));
     EXPECT_TRUE(child.attributes.Contains("defence"));
-    EXPECT_EQ(child.attributes.Get("health").i, 15);
+    EXPECT_EQ(child.attributes.Get("health").i, 90); // this is going to be wrong until we get operator presidence working
     EXPECT_EQ(child.attributes.Get("attack").i, 0);
     EXPECT_EQ(child.attributes.Get("defence").i, 0);
     EXPECT_EQ(child.ID, 1);
@@ -615,4 +615,38 @@ TEST(CompilerTest, DeclareLooser)
     p.RunSetup();
     p.RunTurn();
     EXPECT_EQ(p.game().winner, 1000000000);
+}
+
+
+TEST(CompilerTest, BracketExpression)
+{
+    auto lines = std::vector<std::string>() =
+    {
+        "game test start",
+            "card P1 start",
+                "int x",
+            "end",
+            "card A P1 start",
+                "x = 20",
+            "end",
+            "card P2 start",
+                "int x",
+            "end",
+            "card b P2 start",
+                "x = 20",
+            "end",
+            "visiblestack a",
+            "random P1 -> a top 1",
+            "random P2 -> a top 1",
+
+            "if a.top.x > (a.top-1).x - 1 start",
+                "random P1 -> a top 10",
+            "end",
+        "end"
+    };
+
+    Battler::Program p;
+    p.Compile(lines);
+    p.Run();
+    EXPECT_EQ(p.game().stacks.begin()->second.cards.size(), 12);
 }

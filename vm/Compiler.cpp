@@ -2,6 +2,8 @@
 
 #include "../Compiler.h"
 
+#include <bemapiset.h>
+
 #include "../expression.h"
 #include "../interpreter_errors.h"
 
@@ -64,7 +66,7 @@ void Program::compile_name(vector<Token> tokens, bool lvalue)
 		{
 			code.type = OpcodeType::R_VALUE_REF;
 		}
-		
+
 		DATA_IX_T string_index = (DATA_IX_T) m_strings.size();
 		m_strings.push_back(tokens[0].text);
 		code.data |= STRING_TC;
@@ -140,6 +142,22 @@ void Program::factor_expression(Expression expr)
 		{
 			compile_name(expr.tokens, NAME_IS_RVALUE);
 		}
+
+		return;
+	}
+	else if (expr.type == ExpressionType::RESOLVED_IDENTIFIER_ATTRIBUTE_ACCESS)
+	{
+		Opcode RIAA_START;
+		RIAA_START.type = OpcodeType::DYNAMIC_IDENTIFIER_RESOLUTION_START;
+		m_opcodes.push_back(RIAA_START);
+		factor_expression(expr.children[0]);
+		Opcode RIAA_NAMES;
+		RIAA_NAMES.type = OpcodeType::DYNAMIC_IDENTIFIER_RESOLTION_NAMES;
+		m_opcodes.push_back(RIAA_NAMES);
+		compile_name(expr.tokens, NAME_IS_RVALUE);
+		Opcode RIAA_END;
+		RIAA_END.type = OpcodeType::DYNAMIC_IDENTIFIER_RESOLUTION_END;
+		m_opcodes.push_back(RIAA_END);
 
 		return;
 	}
@@ -228,7 +246,7 @@ void Program::compile_expression(Expression expr)
 	if (expr.type == ExpressionType::GAME_DECLARATION)
 	{
 		auto nameDecl = expr.children.back();
-		
+
 		DATA_IX_T name_index = (DATA_IX_T) m_strings.size();
 		this->m_strings.push_back(nameDecl.tokens[0].text);
 
@@ -252,7 +270,7 @@ void Program::compile_expression(Expression expr)
 		Opcode end;
 		start.type = OpcodeType::SETUP_BLK_HEADER;
 		end.type = OpcodeType::BLK_END;
-		
+
 		m_opcodes.push_back(start);
 		m_setup_index = (int) m_opcodes.size()-1;
 		for (auto e : expr.children)
@@ -301,7 +319,7 @@ void Program::compile_expression(Expression expr)
 	{
 		Opcode code;
 		code.type = OpcodeType::DO_DECL;
-		
+
 		string phase_name = expr.tokens[1].text;
 		DATA_IX_T phase_name_index = (DATA_IX_T) m_strings.size();
 		m_strings.push_back(phase_name);
@@ -314,7 +332,7 @@ void Program::compile_expression(Expression expr)
 	{
 		Opcode code;
 		code.type = OpcodeType::WINNER_DECL;
-		
+
 		m_opcodes.push_back(code);
 		compile_name(expr.tokens, NAME_IS_LVALUE);
 	}
@@ -335,7 +353,7 @@ void Program::compile_expression(Expression expr)
 		ifHeader.type = OpcodeType::IF_BLK_HEADER;
 		Opcode end;
 		end.type = OpcodeType::BLK_END;
-		
+
 		if (booleanExpression.type != ExpressionType::FACTOR
 			&& booleanExpression.type != ExpressionType::EQUALITY_TEST
 			&& booleanExpression.type != ExpressionType::GREATHERTHAN_TEST
@@ -559,10 +577,10 @@ void Program::compile_expression(Expression expr)
 
 		auto typeExpression = expr.children.back();
 		expr.children.pop_back();
-		
+
 		Opcode attrDeclCode;
 		attrDeclCode.type = OpcodeType::ATTR_DECL;
-		
+
 		Opcode typeCode;
 		typeCode.type = OpcodeType::ATTR_DATA_TYPE;
 
@@ -633,7 +651,7 @@ void Program::compile_expression(Expression expr)
 
 int Program::Run(bool load)
 {
-	
+
 	while (!m_waitingForUserInteraction && m_game.winner == -1 && m_current_opcode_index < m_opcodes.size())
 	{
 		Opcode code = m_opcodes[m_current_opcode_index];
@@ -646,7 +664,7 @@ int Program::Run(bool load)
     {
         return RUN_WAITING_FOR_INTERACTION_RETURN;
     }
-    
+
 	return RUN_FINISHED;
 }
 
@@ -660,7 +678,7 @@ int Program::RunSetup()
 	while (!done)
 	{
 		Opcode code = m_opcodes[m_current_opcode_index];
-		
+
 		if (run(code, false) == -1)
 		{
 			return -1;
@@ -677,19 +695,19 @@ int Program::RunSetup()
 int Program::RunTurn(bool resume/*=false*/)
 {
 	bool done = false;
-    
+
     AttrCont currentPlayerAttrCont;
     Attr currentPlayerAttr;
     currentPlayerAttr.type = AttributeType::PLAYER_REF;
     currentPlayerAttr.playerRef = m_game.currentPlayerIndex;
     currentPlayerAttrCont.Store("currentPlayer", currentPlayerAttr);
-    
+
     if (!resume)
     {
         m_depth_store = m_depth;
-        
+
         locale_stack().push_back(currentPlayerAttrCont);
-        
+
         m_current_opcode_index = m_turn_index;
     }
 
@@ -698,7 +716,7 @@ int Program::RunTurn(bool resume/*=false*/)
 		Opcode code = m_opcodes[m_current_opcode_index];
 
         int runReturn = run(code, false);
-        
+
 		if (runReturn == RUN_ERROR)
 		{
 			return RUN_ERROR;
@@ -830,7 +848,7 @@ int Program::run(Opcode code, bool load)
 	}
 	else if (code.type == OpcodeType::BLK_END)
 	{
-		
+
 		if (m_proc_mode_stack.empty())
 		{
 			cout << "'end' without a matching 'start'" << endl;
@@ -883,7 +901,7 @@ int Program::run(Opcode code, bool load)
 		}
 		m_proc_mode_stack.pop_back();
 		m_block_name_stack.pop_back();
-		
+
     }
 	else if (code.type == OpcodeType::IF_BLK_HEADER)
 	{
@@ -999,7 +1017,7 @@ int Program::run(Opcode code, bool load)
 		m_depth++;
 		DATA_IX_T name_idx = (code.data & (OPCODE_CONV_T(0xFF) << 32)) >> 32;
 
-		
+
 		m_proc_mode_stack.push_back(PROC_MODE::CARD);
 		m_block_name_stack.push_back(m_strings[name_idx]);
 
@@ -1028,7 +1046,7 @@ int Program::run(Opcode code, bool load)
 		index_store_attr.i = m_current_opcode_index + 1;
 		cont.Store("__INDEX_STORE", index_store_attr);
 		m_locale_stack.push_back(cont);
-		
+
 		m_current_opcode_index = m_phase_indexes[block_name];
 	}
     /*
@@ -1242,7 +1260,7 @@ int Program::run(Opcode code, bool load)
 
 		if (attrType == AttributeType::STACK_REF)
 		{
-			
+
 			Stack newStack;
 			a.stackRef = (int) m_game.stacks.size();
 
@@ -1270,7 +1288,7 @@ int Program::run(Opcode code, bool load)
 			{
 				newStack.t = StackType::FLAT_PRIVATE;
 			}
-			
+
 			newStack.ID = (int) m_game.stacks.size();
 			m_game.stacks[a.stackRef] = newStack;
 		}
@@ -1282,7 +1300,7 @@ int Program::run(Opcode code, bool load)
 		else
 		{
 			AttrCont* cont = GetObjectAttrContPtrFromIdentifier(names.begin(), names.end() - 1);
-			// TODO: Fix bug where nested stack attrs delcarations such as hiddenstack p.hand 
+			// TODO: Fix bug where nested stack attrs delcarations such as hiddenstack p.hand
 			//       are overwritten in the game's stack store using their last name
 			cont->Store(names.back(), a);
 		}
@@ -1384,7 +1402,7 @@ void Program::ignore_block()
 		auto type = m_opcodes[m_current_opcode_index].type;
 		if (type == OpcodeType::CARD_BLK_HEADER)
 			depth++;
-		
+
 		if (type == OpcodeType::FOREACHPLAYER_BLK_HEADER)
 			depth++;
 
@@ -1459,9 +1477,9 @@ int Program::resolve_number_expression()
 		assert(type == INT_TC);
 
 		DATA_IX_T data_index = (int_value_opcode.data & (OPCODE_CONV_T(0xFF) << 32)) >> 32;
-		
+
 		m_current_opcode_index++;
-		return m_ints[data_index];	
+		return m_ints[data_index];
 	}
 	if (m_opcodes[m_current_opcode_index].type == OpcodeType::R_VALUE_DOT_SEPERATED_REF_CHAIN)
 	{
@@ -1469,7 +1487,7 @@ int Program::resolve_number_expression()
 		read_name(names, m_opcodes[m_current_opcode_index].type);
 
 		Attr attrPtr = get_attr_rvalue(names);
-		
+
 		assert(attrPtr.type == AttributeType::INT);
 
 		return attrPtr.i;
@@ -1477,34 +1495,54 @@ int Program::resolve_number_expression()
 	else if (m_opcodes[m_current_opcode_index].type == OpcodeType::MULTIPLY)
 	{
 		m_current_opcode_index++;
-		int left = resolve_number_expression();
-		int right = resolve_number_expression();
+		Attr left = resolve_expression_to_attr();
+		Attr right = resolve_expression_to_attr();
 
-		return left * right;
+		if (left.type != AttributeType::INT || right.type != AttributeType::INT)
+		{
+			throw VMError("both sides of addition must be integers");
+		}
+
+		return left.i * right.i;
 	}
 	else if (m_opcodes[m_current_opcode_index].type == OpcodeType::ADD)
 	{
 		m_current_opcode_index++;
-		int left = resolve_number_expression();
-		int right = resolve_number_expression();
+		Attr left = resolve_expression_to_attr();
+		Attr right = resolve_expression_to_attr();
 
-		return left + right;
+		if (left.type != AttributeType::INT || right.type != AttributeType::INT)
+		{
+			throw VMError("both sides of addition must be integers");
+		}
+
+		return left.i + right.i;
 	}
 	else if (m_opcodes[m_current_opcode_index].type == OpcodeType::SUBTRACT)
 	{
 		m_current_opcode_index++;
-		int left = resolve_number_expression();
-		int right = resolve_number_expression();
+		Attr left = resolve_expression_to_attr();
+		Attr right = resolve_expression_to_attr();
 
-		return left - right;
+		if (left.type != AttributeType::INT || right.type != AttributeType::INT)
+		{
+			throw VMError("both sides of subtraction must be integers");
+		}
+
+		return left.i - right.i;
 	}
 	else if (m_opcodes[m_current_opcode_index].type == OpcodeType::DIVIDE)
 	{
 		m_current_opcode_index++;
-		int left = resolve_number_expression();
-		int right = resolve_number_expression();
+		Attr left = resolve_expression_to_attr();
+		Attr right = resolve_expression_to_attr();
 
-		return left / right;
+		if (left.type != AttributeType::INT || right.type != AttributeType::INT)
+		{
+			throw VMError("both sides of subtraction must be integers");
+		}
+
+		return left.i / right.i;
 	}
 	else
 	{
@@ -1666,17 +1704,98 @@ bool Program::compare_attrs(Attr a, Attr b)
 
 Attr Program::add_attrs(Attr a, Attr b)
 {
-	throw VMError("Joe needs to implement add_attrs");
+
+	if (b.type == AttributeType::STACK_POSITION_REF) {
+		Attr tmp = a;
+		a = b;
+		b = tmp;
+	}
+	else if (b.type == AttributeType::PLAYER_REF) {
+		Attr tmp = a;
+		a = b;
+		b = tmp;
+	}
+
+	if (a.type == AttributeType::STACK_POSITION_REF)
+	{
+		if (b.type != AttributeType::INT)
+		{
+			throw VMError("you can only subtract integers from Stack Position references");
+		}
+
+		tuple<int, int> newStackPositionRef(std::get<0>(a.stackPositionRef), std::get<1>(a.stackPositionRef) - b.i);
+		Attr r;
+		r.type = AttributeType::STACK_POSITION_REF;
+		r.stackPositionRef = newStackPositionRef;
+		return r;
+	}
+	else if (a.type == AttributeType::PLAYER_REF) {
+
+		if (b.type != AttributeType::INT) {
+			throw VMError("Only integers may be added to player references");
+		}
+		Attr r;
+		r.playerRef = a.playerRef + b.i;
+		return r;
+	}
+	else if (a.type == AttributeType::INT && b.type == AttributeType::INT)
+	{
+		Attr r;
+		r.type = AttributeType::INT;
+		r.i = a.i + b.i;
+		return r;
+	}
+	else {
+		throw VMError("cannot add these types");
+	}
+
+
 }
 
 Attr Program::multiply_attrs(Attr a, Attr b)
 {
-	throw VMError("Joe needs to implement multiply_attrs");
+	if (a.type != AttributeType::INT || b.type != AttributeType::INT) {
+		throw VMError("both sides of addition must be integers");
+	}
+
+	Attr r;
+	r.type = AttributeType::INT;
+	r.i = a.i * b.i;
+
+	return r;
 }
 
 Attr Program::divide_attrs(Attr a, Attr b)
 {
-	throw VMError("Joe needs to implement divide_attrs");
+	// if (a.type != AttributeType::INT || b.type != AttributeType::INT) {
+	// 	throw VMError("both sides of addition must be integers");
+	// }
+
+	if (a.type == AttributeType::STACK_POSITION_REF)
+	{
+		if (b.type != AttributeType::INT)
+		{
+			throw VMError("you can only divide Stack Position references by integers");
+		}
+
+		tuple<int, int> newStackPositionRef(std::get<0>(a.stackPositionRef), std::get<1>(a.stackPositionRef) / b.i);
+		Attr r;
+		r.type = AttributeType::STACK_POSITION_REF;
+		r.stackPositionRef = newStackPositionRef;
+		return r;
+	}
+	else if (a.type == AttributeType::INT)
+	{
+		Attr r;
+		r.type = AttributeType::INT;
+		r.i = a.i / b.i;
+
+		return r;
+	}
+	else
+	{
+		throw VMError("you cannot divide these types");
+	}
 }
 
 Attr Program::subtract_attrs(Attr a, Attr b)
@@ -1827,6 +1946,28 @@ Attr Program::resolve_expression_to_attr()
 
 		return multiply_attrs(left, right);
 	}
+	else if (m_opcodes[m_current_opcode_index].type == OpcodeType::DYNAMIC_IDENTIFIER_RESOLUTION_START)
+	{
+		// DYNAMIC_IDENTIFIER_RESOLUTION_START
+		// some expression . . .
+		// DYNAMIC_IDENTIFIER_RESOLTION_NAMES
+		// identifier in names
+		// DYNAMIC_IDENTIFIER_RESOLUTION_END
+		m_current_opcode_index++;
+		Attr r = resolve_expression_to_attr();
+		vector<string> names;
+		if (m_opcodes[m_current_opcode_index].type != OpcodeType::DYNAMIC_IDENTIFIER_RESOLTION_NAMES)
+		{
+			throw VMError("OPCODE ERROR: Expected DYNAMIC_IDENTIFIER_RESOLUTION_NAMES");
+		}
+		m_current_opcode_index ++;
+		read_name(names, m_opcodes[m_current_opcode_index].type);
+		Attr dynamicallyResolvedAttribute = get_attr_rvalue_from_base_attr(r, names);
+		m_current_opcode_index ++;
+
+		return dynamicallyResolvedAttribute;
+
+	}
 	else
 	{
 		throw VMError("Expression -> attr conversion is unsupported for this expression type");
@@ -1942,6 +2083,58 @@ AttrCont* Program::GetObjectAttrContPtrFromIdentifier(vector<string>::iterator n
 	}
 
 	return current;
+}
+
+Attr Program::get_attr_rvalue_from_base_attr(Attr base, vector<string>& names)
+{
+	assert(names.size() > 0);
+
+	bool shallowName = names.size() == 1;
+
+	AttrCont baseAttrCont;
+
+	if (base.type == AttributeType::CARD_REF)
+	{
+		Card c = m_game.cards[base.cardRef];
+		baseAttrCont = c.attributes;
+	}
+	else if (base.type == AttributeType::STACK_POSITION_REF)
+	{
+		Card c = m_game.stacks[std::get<0>(base.stackPositionRef)].cards[std::get<1>(base.stackPositionRef)];
+		baseAttrCont = c.attributes;
+	}
+	else if (base.type == AttributeType::PLAYER_REF)
+	{
+		baseAttrCont = m_game.players[base.playerRef].attributes;
+	}
+	else if (base.type == AttributeType::STACK_REF)
+	{
+		baseAttrCont = m_game.stacks.at(base.stackRef).attributes;
+	}
+	else
+	{
+		std::stringstream ss;
+		ss << "cannot lookup '";
+		for (auto n : names)
+		{
+			ss << "." << n;
+		}
+		ss <<"' on this attribute";
+
+
+		throw VMError(ss.str());
+	}
+
+	Attr nextAttribute = baseAttrCont.Get(names[0]);
+
+	if (shallowName)
+	{
+		return nextAttribute;
+	}
+
+	std::vector restOfNames(names.begin()+1, names.end());
+	return get_attr_rvalue_from_base_attr(nextAttribute, restOfNames);
+
 }
 
 Attr Program::get_attr_rvalue(vector<string>& names)

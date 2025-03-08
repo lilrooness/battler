@@ -122,7 +122,38 @@ namespace Battler {
 
         Expression expression;
 
-        if (current->type == TokenType::number || current->type == TokenType::name) {
+        Expression leftFactor;
+
+        if (current->type == openbr) {
+            auto i = current;
+            while (i != end) {
+                if (i->type == closebr) {
+                    break;
+                }
+                i++;
+            }
+
+            if (i == end) {
+                throw UnexpectedTokenException(*end, "expected a closing bracket to the bracketed expression");
+            }
+
+            auto brackedtedExpressionCurrent = current + 1;
+            auto bracketedExpressionEnd = i;
+            Expression brackedtedExpression = GetFactorExpression(brackedtedExpressionCurrent, bracketedExpressionEnd);
+            current = bracketedExpressionEnd;
+
+            if (current + 1 != end && (current + 1)->type == dot) {
+                current += 2;
+                std::vector<Token> identifierTokens = GetIdentifierTokens(current, end);
+                leftFactor.type = ExpressionType::RESOLVED_IDENTIFIER_ATTRIBUTE_ACCESS;
+                leftFactor.children.push_back(brackedtedExpression);
+                leftFactor.tokens = identifierTokens;
+            }
+            else {
+                leftFactor = brackedtedExpression;
+            }
+
+        } else if (current->type == TokenType::number || current->type == TokenType::name) {
 
             std::vector<Token> identifierTokens;
             if (current->type == TokenType::name) {
@@ -131,34 +162,34 @@ namespace Battler {
             else {
                 identifierTokens = { *current };
             }
+            leftFactor = Expression(ExpressionType::FACTOR, identifierTokens);
 
-            if (current + 1 != end && IsOperatorType((current + 1)->type)) {
-                current++;
-                auto leftFactor = Expression(ExpressionType::FACTOR, identifierTokens);
-
-                auto expressionType = GetExpressionTypeFromOperatorTokenType(current->type);
-                if (expressionType == ExpressionType::UNKNOWN) {
-                    throw UnexpectedTokenException(*current, "Unsupported Operator");
-                }
-
-                expression.type = expressionType;
-                expression.tokens.push_back(*current);
-
-                ensureNoEOF(++current, end);
-
-                auto rightFactor = GetFactorExpression(current, end);
-
-                expression.children.push_back(std::move(leftFactor));
-                expression.children.push_back(std::move(rightFactor));
-
-            }
-            else {
-                expression.type = ExpressionType::FACTOR;
-                expression.tokens = identifierTokens;
-            }
         }
         else {
-            throw UnexpectedTokenException(*current, "expected a value or a var name here");
+            throw UnexpectedTokenException(*current, "expected a value, var name or a bracketed expression here");
+        }
+
+        if (current + 1 != end && IsOperatorType((current + 1)->type)) {
+            current++;
+
+            auto expressionType = GetExpressionTypeFromOperatorTokenType(current->type);
+            if (expressionType == ExpressionType::UNKNOWN) {
+                throw UnexpectedTokenException(*current, "Unsupported Operator");
+            }
+
+            expression.type = expressionType;
+            expression.tokens.push_back(*current);
+
+            ensureNoEOF(++current, end);
+
+            auto rightFactor = GetFactorExpression(current, end);
+
+            expression.children.push_back(std::move(leftFactor));
+            expression.children.push_back(std::move(rightFactor));
+
+        }
+        else {
+            expression = leftFactor;
         }
 
         return expression;

@@ -81,6 +81,10 @@ enum class OpcodeType
     STACK_CUT_SOURCE_CHOICE_GATHER,
     STACK_CUT_SOURCE_MULTI_GATHER,
 
+    DYNAMIC_IDENTIFIER_RESOLUTION_START,
+    DYNAMIC_IDENTIFIER_RESOLTION_NAMES,
+    DYNAMIC_IDENTIFIER_RESOLUTION_END,
+
     // indication of a stack transfer
     STACK_TRANSFER,
     // User interaction indicator in stack transfer
@@ -273,6 +277,7 @@ private:
     void read_name(vector<string>& names, OpcodeType nameType);
     Attr* get_attr_ptr(vector<string>& names);
     Attr get_attr_rvalue(vector<string>& names);
+    Attr get_attr_rvalue_from_base_attr(Attr base, vector<string>& names);
     string get_card_parent_name(string nameSequence);
     string get_card_name(string nameSequence);
     Stack* get_stack_ptr(vector<string>& names);

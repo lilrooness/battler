@@ -30,6 +30,7 @@ namespace Battler {
         GREATHERTHAN_TEST, // >
         // FOREACH,
         IDENTIFIER,
+        RESOLVED_IDENTIFIER_ATTRIBUTE_ACCESS, // (stackA.top - 1).x
         // NAME,
         // LITERAL,
         // GROUPING,
