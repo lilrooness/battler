@@ -492,3 +492,26 @@ TEST(EndToEndTests, MoveFromAndToSelection)
     EXPECT_EQ((p.game().stacks[2].cards.end()-1)->UUID, cardToMove.UUID);
     EXPECT_FALSE(p.m_waitingForUserInteraction);
 }
+
+TEST(CompilerTest, Compare_stackPosref_Card)
+{
+    auto lines = std::vector<std::string>() =
+    {
+        "game test start",
+            "card P start end",
+            "card C P start end",
+            "visiblestack a",
+            "random P -> a top 10",
+            "if a.top == C start",
+                "random P -> a top 10",
+                "random P -> a top 10",
+                "random P -> a top 10",
+            "end",
+        "end"
+    };
+
+    Battler::Program p;
+    p.Compile(lines);
+    p.Run();
+    EXPECT_EQ(p.game().stacks.begin()->second.cards.size(), 40);
+}

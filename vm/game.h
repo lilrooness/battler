@@ -90,9 +90,10 @@ class Stack {
 
 class Card {
     public:
-        Card() : UUID(-1) {}
+        Card() : UUID(-1), parentID(-1) {}
         int UUID; // unique istance ID
         int ID; // NOT unique per istance, EG, if you have 4x queen of hearts, they will all have the same ID
+        int parentID;
         std::string name;
         std::string parentName;
         AttrCont attributes;

@@ -477,8 +477,9 @@ namespace Battler {
         ensureTokenTypeAndText(TokenType::name, "start", *current, "Expected 'start' here");
 
         ensureNoEOF(++current, end);
-        expr.children = GetBlock(current, end);
-        expr.children.push_back(std::move(booleanExpression));
+        expr.children.push_back(booleanExpression);
+        auto blockExprs = GetBlock(current, end);
+        expr.children.insert(expr.children.end(), blockExprs.begin(), blockExprs.end());
 
         return expr;
     }

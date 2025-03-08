@@ -312,8 +312,9 @@ void Program::compile_expression(Expression expr)
 	}
 	else if (expr.type == ExpressionType::IF_DECLARATION)
 	{
-		auto booleanExpression = expr.children[1];
-		auto block = expr.children[0];
+		auto booleanExpression = expr.children[0];
+
+		std::vector expressionsInIfBlock(expr.children.begin() + 1, expr.children.end());
 
 		Opcode ifHeader;
 		ifHeader.type = OpcodeType::IF_BLK_HEADER;
@@ -332,7 +333,10 @@ void Program::compile_expression(Expression expr)
 
 		m_opcodes.push_back(ifHeader);
 		factor_expression(booleanExpression);
-		compile_expression(block);
+		for (auto e : expressionsInIfBlock)
+		{
+			compile_expression(e);
+		}
 		m_opcodes.push_back(end);
 	}
 	else if (expr.type == ExpressionType::FOREACHPLAYER_DECLARATION)
@@ -827,7 +831,16 @@ int Program::run(Opcode code, bool load)
 
 			card.name = get_card_name(nameSequence);
 			card.parentName = get_card_parent_name(nameSequence);
-
+			if (m_game.cards.find(card.parentName) != m_game.cards.end())
+			{
+				card.parentID = m_game.cards[card.parentName].ID;
+			}
+			else if (card.parentName != "")
+			{
+				std::stringstream ss;
+				ss << "no card with parent " << card.parentName;
+				throw VMError(ss.str());
+			}
 			m_game.cards[card.name] = card;
 			m_current_opcode_index += 1;
 		}
@@ -1477,7 +1490,10 @@ bool Program::resolve_bool_expression()
 
 		TYPE_CODE_T type = (bool_value_opcode.data & TYPE_CODE_T_MASK);
 
-		assert(type == BOOL_TC);
+		if (type != BOOL_TC)
+		{
+			throw VMError("Type must be a bool to be a boolean expression");
+		}
 
 		DATA_IX_T data_index = (bool_value_opcode.data & (OPCODE_CONV_T(0xFF) << 32)) >> 32;
 
@@ -1507,15 +1523,53 @@ bool Program::resolve_bool_expression()
 	}
 	else
 	{
-		throw VMError("unsupported reference type used in boolean expression");
+		throw VMError("This is somehow not a boolean expression");
 	}
 }
 
 bool Program::compare_attrs(Attr a, Attr b)
 {
-	if (a.type != b.type)
+	if (b.type == AttributeType::STACK_POSITION_REF)
 	{
-		throw VMError("Unable to compare attributes of different type");
+		//swap a & b, ensure that 'a' is the stack ref (if they both are, it doesn't matter)
+		auto tmp = b;
+		b = a;
+		a = tmp;
+	}
+	if (a.type == AttributeType::STACK_POSITION_REF)
+	{
+		int stackAID = std::get<0>(a.stackPositionRef);
+		int stackAPos = std::get<1>(a.stackPositionRef);
+		auto stackA = m_game.stacks[stackAID];
+		auto cardFromA = stackA.cards[stackAPos];
+
+		if (b.type == AttributeType::STACK_POSITION_REF)
+		{
+			int stackBID = std::get<0>(b.stackPositionRef);
+			int stackBPos = std::get<1>(b.stackPositionRef);
+
+			if (stackAID == stackBID && stackAPos == stackBPos)
+			{
+				return true;
+			}
+
+			auto stackB = m_game.stacks[stackBID];
+			auto cardFromB = stackB.cards[stackBPos];
+
+			return cardFromA.ID == cardFromB.ID;
+		}
+		else if (b.type == AttributeType::CARD_REF)
+		{
+			return m_game.cards[b.cardRef].ID == cardFromA.ID;
+		}
+		else
+		{
+			throw VMError("Stack Posistion References may only be compared to Cards and other Stack Position References");
+		}
+	}
+	else if (a.type != b.type)
+	{
+		throw VMError("Unable to compare these different attributes");
 	}
 
 	switch (a.type)
@@ -1532,25 +1586,6 @@ bool Program::compare_attrs(Attr a, Attr b)
 		return a.phaseRef == b.phaseRef;
 	case AttributeType::PLAYER_REF:
 		return a.playerRef == b.playerRef;
-	case AttributeType::STACK_POSITION_REF:
-	{
-		std::get<0>(a.stackPositionRef) == std::get<0>(b.stackPositionRef) && std::get<1>(a.stackPositionRef) == std::get<1>(b.stackPositionRef);
-		auto stack_a = &m_game.stacks[std::get<0>(a.stackPositionRef)];
-		int pos_ref_a = std::get<1>(a.stackPositionRef);
-
-		auto stack_b = &m_game.stacks[std::get<0>(b.stackPositionRef)];
-		int pos_ref_b = std::get<1>(b.stackPositionRef);
-
-		if (pos_ref_a < 0 || pos_ref_b < 0)
-		{
-			return false;
-		}
-
-		auto card_a = &stack_a->cards[pos_ref_a];
-		auto card_b = &stack_b->cards[pos_ref_b];
-
-		return card_a->name == card_b->name && card_a->parentName == card_b->parentName;
-	}
 	case AttributeType::STACK_REF:
 		return a.stackRef == b.stackRef;
 	case AttributeType::STRING:
