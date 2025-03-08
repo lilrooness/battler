@@ -9,6 +9,8 @@ namespace Battler {
         case TokenType::times: return ExpressionType::MULTIPLICATION;
         case TokenType::divide: return ExpressionType::DIVISION;
         case TokenType::equality: return ExpressionType::EQUALITY_TEST;
+        case TokenType::lessthan: return ExpressionType::LESSTHAN_TEST;
+        case TokenType::greaterthan: return ExpressionType::GREATHERTHAN_TEST;
         default: return ExpressionType::UNKNOWN;
         }
     }

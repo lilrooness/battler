@@ -26,6 +26,8 @@ namespace Battler {
         DIVISION,
         SUBTRACTION,
         EQUALITY_TEST, // '=='
+        LESSTHAN_TEST, // <
+        GREATHERTHAN_TEST, // >
         // FOREACH,
         IDENTIFIER,
         // NAME,

@@ -8,7 +8,9 @@ namespace Battler {
 			|| type == TokenType::plus
 			|| type == TokenType::minus
 			|| type == TokenType::times
-			|| type == TokenType::equality;
+			|| type == TokenType::equality
+			|| type == TokenType::greaterthan
+			|| type == TokenType::lessthan;
 	}
 
 
@@ -96,7 +98,7 @@ namespace Battler {
 		}
 		else if (*begin == '>') {
 			t.text.push_back('>');
-			t.type = TokenType::morethan;
+			t.type = TokenType::greaterthan;
 			return make_pair(t, begin + 1);
 		}
 		else if (*begin == '(') {

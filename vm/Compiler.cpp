@@ -169,6 +169,14 @@ void Program::factor_expression(Expression expr)
 	{
 		operation_opcode.type = OpcodeType::COMPARE;
 	}
+	else if (expr.type == ExpressionType::GREATHERTHAN_TEST)
+	{
+		operation_opcode.type =  OpcodeType::COMPARE_GREATERTHAN;
+	}
+	else if (expr.type == ExpressionType::LESSTHAN_TEST)
+	{
+		operation_opcode.type =  OpcodeType::COMPARE_LESSTHAN;
+	}
 	else
 	{
 		std::stringstream ss;
@@ -328,7 +336,10 @@ void Program::compile_expression(Expression expr)
 		Opcode end;
 		end.type = OpcodeType::BLK_END;
 		
-		if (booleanExpression.type != ExpressionType::FACTOR && booleanExpression.type != ExpressionType::EQUALITY_TEST)
+		if (booleanExpression.type != ExpressionType::FACTOR
+			&& booleanExpression.type != ExpressionType::EQUALITY_TEST
+			&& booleanExpression.type != ExpressionType::GREATHERTHAN_TEST
+			&& booleanExpression.type != ExpressionType::LESSTHAN_TEST)
 		{
 			std::stringstream ss;
 			ss << "Not a Boolean Expression: ";
@@ -1543,10 +1554,46 @@ bool Program::resolve_bool_expression()
 
 		return compare_attrs(left, right);
 	}
+	else if (m_opcodes[m_current_opcode_index].type == OpcodeType::COMPARE_GREATERTHAN)
+	{
+		m_current_opcode_index++;
+		auto left = resolve_expression_to_attr();
+		auto right = resolve_expression_to_attr();
+
+		return compare_greatherthan_attrs(left, right);
+	}
+	else if (m_opcodes[m_current_opcode_index].type == OpcodeType::COMPARE_LESSTHAN)
+	{
+		m_current_opcode_index++;
+		auto left = resolve_expression_to_attr();
+		auto right = resolve_expression_to_attr();
+
+		return compare_lessthan_attrs(left, right);
+	}
 	else
 	{
 		throw VMError("This is somehow not a boolean expression");
 	}
+}
+
+bool Program::compare_lessthan_attrs(Attr a, Attr b)
+{
+	if (a.type == AttributeType::INT && b.type == AttributeType::INT)
+	{
+		return a.i < b.i;
+	}
+
+	throw VMError("Cannot perform '<' operation on these types");
+}
+
+bool Program::compare_greatherthan_attrs(Attr a, Attr b)
+{
+	if (a.type == AttributeType::INT && b.type == AttributeType::INT)
+	{
+		return a.i > b.i;
+	}
+
+	throw VMError("Cannot perform '>' operation on these types");
 }
 
 bool Program::compare_attrs(Attr a, Attr b)
@@ -1972,8 +2019,7 @@ Attr Program::get_attr_rvalue(vector<string>& names)
 		else if (currentAttr.type == AttributeType::STACK_REF)
 		{
 
-			if (*nameItr == "top" || *nameItr == "bottom")
-			{
+			if (*nameItr == "top" || *nameItr == "bottom") {
 				Attr tmp;
 				tmp.type = AttributeType::STACK_POSITION_REF;
 
@@ -1988,7 +2034,18 @@ Attr Program::get_attr_rvalue(vector<string>& names)
 					tmp.stackPositionRef = std::tuple< int, int>(currentAttr.stackRef, bottomIndex);
 				}
 
-				return tmp;
+				if (nameItr == names.end() - 1)
+				{
+					return tmp;
+				}
+
+				int stackID = std::get<0>(tmp.stackPositionRef);
+				int cardIdx = std::get<1>(tmp.stackPositionRef);
+				Card c = m_game.stacks[stackID].cards[cardIdx];
+				Attr cardRef;
+				cardRef.cardRef = c.name;
+				cardRef.type = AttributeType::CARD_REF;
+				currentAttr = cardRef;
 			}
 			else if (*nameItr == "size")
 			{
@@ -1999,8 +2056,7 @@ Attr Program::get_attr_rvalue(vector<string>& names)
 
 				return tmp;
 			}
-
-			if (m_game.stacks[currentAttr.stackRef].attributes.Contains(*nameItr))
+			else if (m_game.stacks[currentAttr.stackRef].attributes.Contains(*nameItr))
 			{
 				if (nameItr == names.end() - 1)
 				{

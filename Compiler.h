@@ -56,6 +56,8 @@ enum class OpcodeType
     DOT_SEPERATED_REF_CHAIN_END,
     R_VALUE,
     COMPARE,
+    COMPARE_GREATERTHAN,
+    COMPARE_LESSTHAN,
     
     // Stack operations
     STACK_SOURCE_RANDOM_CARD_TYPE,
@@ -275,6 +277,8 @@ private:
     string get_card_name(string nameSequence);
     Stack* get_stack_ptr(vector<string>& names);
     bool compare_attrs(Attr a, Attr b);
+    bool compare_lessthan_attrs(Attr a, Attr b);
+    bool compare_greatherthan_attrs(Attr a, Attr b);
     Attr subtract_attrs(Attr a, Attr b);
     Attr add_attrs(Attr a, Attr b);
     Attr multiply_attrs(Attr a, Attr b);

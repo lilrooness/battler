@@ -516,12 +516,92 @@ TEST(CompilerTest, Compare_stackPosref_Card)
     EXPECT_EQ(p.game().stacks.begin()->second.cards.size(), 40);
 }
 
+TEST(CompilerTest, ResolveCardAttributesFromStackPosition)
+{
+    auto lines = std::vector<std::string>() =
+    {
+        "game test start",
+            "card P start",
+                "int x",
+            "end",
+            "card A P start",
+                "x = 0",
+            "end",
+            "visiblestack a",
+            "random P -> a top 10",
+            "if a.top.x == 0 start",
+                "random P -> a top 10",
+                "random P -> a top 10",
+                "random P -> a top 10",
+            "end",
+        "end"
+    };
+
+    Battler::Program p;
+    p.Compile(lines);
+    p.Run();
+    EXPECT_EQ(p.game().stacks.begin()->second.cards.size(), 40);
+}
+
+TEST(CompilerTest, LessThan)
+{
+    auto lines = std::vector<std::string>() =
+    {
+        "game test start",
+            "card P start",
+                "int x",
+            "end",
+            "card A P start",
+                "x = 10",
+            "end",
+            "visiblestack a",
+            "random P -> a top 10",
+            "if a.top.x < 20 start",
+                "random P -> a top 10",
+                "random P -> a top 10",
+                "random P -> a top 10",
+            "end",
+        "end"
+    };
+
+    Battler::Program p;
+    p.Compile(lines);
+    p.Run();
+    EXPECT_EQ(p.game().stacks.begin()->second.cards.size(), 40);
+}
+
+TEST(CompilerTest, greatherThan)
+{
+    auto lines = std::vector<std::string>() =
+    {
+        "game test start",
+            "card P start",
+                "int x",
+            "end",
+            "card A P start",
+                "x = 10",
+            "end",
+            "visiblestack a",
+            "random P -> a top 10",
+            "if a.top.x > 5 start",
+                "random P -> a top 10",
+                "random P -> a top 10",
+                "random P -> a top 10",
+            "end",
+        "end"
+    };
+
+    Battler::Program p;
+    p.Compile(lines);
+    p.Run();
+    EXPECT_EQ(p.game().stacks.begin()->second.cards.size(), 40);
+}
+
 TEST(CompilerTest, DeclareLooser)
 {
     auto lines = std::vector<std::string>() =
     {
         "game test start",
-            // "players 1",
             "setup start end",
             "turn start",
                 "looseris currentPlayer",

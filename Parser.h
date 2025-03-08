@@ -15,7 +15,7 @@ namespace Battler {
 		times,
 		divide,
 		lessthan,
-		morethan,
+		greaterthan,
 		name,
 		number,
 		space,
