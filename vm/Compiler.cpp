@@ -1044,6 +1044,7 @@ int Program::run(Opcode code, bool load)
 	else if (code.type == OpcodeType::ELSE_BLK_HEADER || code.type == OpcodeType::ELSE_IF_BLK_HEADER)
 	{
 		// we're here because we just executed part of an if / else block, and now we need to skip the rest of it
+		m_depth--;
 		ignore_block();
 	}
 	else if (code.type == OpcodeType::FOREACHPLAYER_BLK_HEADER)

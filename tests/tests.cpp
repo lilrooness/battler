@@ -843,3 +843,63 @@ TEST(VMTtest, testCardFromEmptyStack)
     EXPECT_EQ(p.game().stacks[0].cards.size(), 0);
     EXPECT_EQ(p.game().stacks[0].cards.size(), 0);
 }
+
+TEST(VMTtest, compareTwoStackPositionReferences)
+{
+    auto lines = std::vector<std::string>() =
+    {
+        "game test start",
+            "visiblestack a",
+            "card A start end",
+            "place A -> a 3",
+
+            "if a.top == (a.top-2) start",
+                "place A -> a 2",
+            "end",
+        "end"
+    };
+
+    Battler::Program p;
+    p.Compile(lines);
+    p.Run();
+    EXPECT_EQ(p.game().stacks[0].cards.size(), 5);
+}
+
+TEST(VMTest, nesetedIfElseInIfElse)
+{
+    auto lines = std::vector<std::string>() =
+    {
+        "game test start",
+            "card C start end",
+            "card One C start end",
+            "card Two C start end",
+
+            "hiddenstack a",
+            "visiblestack b",
+
+            // "random C -> a 50",
+            "place Two -> b 5",
+            "place Two -> a 50",
+
+            "turn start",
+                "if a.top == Two start",
+                    "if b.size > 2 start",
+                        "a -> b top 1",
+                    "elseif b.size == 100 then",
+                        "a -> b top 10",
+                    "else",
+                        "a -> b top 100",
+                    "end",
+                "elseif a.top == One then",
+                    "a -> b top 1000",
+                "end",
+            "end",
+        "end"
+    };
+
+    Battler::Program p;
+    p.Compile(lines);
+    p.Run(true);
+    EXPECT_EQ(p.RunTurn(), 0);
+    EXPECT_EQ(p.game().stacks[1].cards.size(), 6);
+}
