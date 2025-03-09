@@ -65,7 +65,7 @@ namespace Battler {
         std::vector<Expression> expressions;
 
         while (current != end) {
-            if (current->text == "end") {
+            if (current->text == "end" || current->text == "elseif" || current->text == "else") {
                 return expressions;
             }
 
@@ -532,6 +532,27 @@ namespace Battler {
         expr.children.push_back(booleanExpression);
         auto blockExprs = GetBlock(current, end);
         expr.children.insert(expr.children.end(), blockExprs.begin(), blockExprs.end());
+
+        while (current->text == "elseif") {
+            Expression elseIfExpr(ExpressionType::ELSEIF_DECLARATION, {*current});
+            ensureNoEOF(++current, end);
+            auto elseIfGuard = GetFactorExpression(current, end);
+            ensureNoEOF(++current, end);
+            ensureTokenTypeAndText(TokenType::name, "then", *current, "Expected 'then' here");
+            ensureNoEOF(++current, end);
+            auto elseIfBlockExprs = GetBlock(current, end);
+            elseIfExpr.children.push_back(elseIfGuard);
+            elseIfExpr.children.insert(elseIfExpr.children.end(), elseIfBlockExprs.begin(), elseIfBlockExprs.end());
+            expr.children.push_back(elseIfExpr);
+        }
+
+        if (current->text == "else") {
+            Expression elseExpr(ExpressionType::ELSE_DECLARATION, {*current});
+            ensureNoEOF(++current, end);
+            auto elseBlockExprs = GetBlock(current, end);
+            elseExpr.children = elseBlockExprs;
+            expr.children.push_back(elseExpr);
+        }
 
         return expr;
     }

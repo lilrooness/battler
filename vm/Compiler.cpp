@@ -2,8 +2,6 @@
 
 #include "../Compiler.h"
 
-#include <bemapiset.h>
-
 #include "../expression.h"
 #include "../interpreter_errors.h"
 
@@ -241,6 +239,22 @@ std::vector<vector<Token>> get_identifiers_from_flat_comma_seperated_tokens_vect
     return names;
 }
 
+void EnsureValidBooleanExpression(Expression booleanExpression)
+{
+	if (booleanExpression.type != ExpressionType::FACTOR
+		&& booleanExpression.type != ExpressionType::EQUALITY_TEST
+		&& booleanExpression.type != ExpressionType::GREATHERTHAN_TEST
+		&& booleanExpression.type != ExpressionType::LESSTHAN_TEST)
+	{
+		std::stringstream ss;
+		ss << "Not a Boolean Expression: ";
+		for (auto t : booleanExpression.tokens) {
+			ss << t.text << " ";
+		}
+		throw CompileError(ss.str(), booleanExpression.tokens[0]);
+	}
+}
+
 void Program::compile_expression(Expression expr)
 {
 	if (expr.type == ExpressionType::GAME_DECLARATION)
@@ -347,33 +361,91 @@ void Program::compile_expression(Expression expr)
 	{
 		auto booleanExpression = expr.children[0];
 
-		std::vector expressionsInIfBlock(expr.children.begin() + 1, expr.children.end());
+		int elseIfIndexesStart = -1;
+		int elseIndex = -1;
+
+		for (int i=0; i<expr.children.size(); i++)
+		{
+			if (elseIfIndexesStart == -1 && expr.children[i].type == ExpressionType::ELSEIF_DECLARATION)
+			{
+				elseIfIndexesStart = i;
+			}
+			else if (expr.children[i].type == ExpressionType::ELSE_DECLARATION)
+			{
+				elseIndex = i;
+			}
+		}
+
+		std::vector<Expression> expressionsInIfBlock;
+
+		if (elseIfIndexesStart > -1)
+		{
+			expressionsInIfBlock = std::vector(expr.children.begin() + 1, expr.children.begin() + elseIfIndexesStart);
+		}
+		else if (elseIndex > -1)
+		{
+			expressionsInIfBlock = std::vector(expr.children.begin() + 1, expr.children.begin() + elseIndex);
+		}
+		else
+		{
+			expressionsInIfBlock = std::vector(expr.children.begin() + 1, expr.children.end());
+		}
 
 		Opcode ifHeader;
 		ifHeader.type = OpcodeType::IF_BLK_HEADER;
 		Opcode end;
 		end.type = OpcodeType::BLK_END;
 
-		if (booleanExpression.type != ExpressionType::FACTOR
-			&& booleanExpression.type != ExpressionType::EQUALITY_TEST
-			&& booleanExpression.type != ExpressionType::GREATHERTHAN_TEST
-			&& booleanExpression.type != ExpressionType::LESSTHAN_TEST)
-		{
-			std::stringstream ss;
-			ss << "Not a Boolean Expression: ";
-			for (auto t : expr.tokens) {
-				ss << t.text << " ";
-			}
-			throw CompileError(ss.str(), expr.tokens[0]);
-		}
-
 		m_opcodes.push_back(ifHeader);
+
+		EnsureValidBooleanExpression(booleanExpression);
 		factor_expression(booleanExpression);
 		for (auto e : expressionsInIfBlock)
 		{
 			compile_expression(e);
 		}
+
+		if (elseIfIndexesStart > -1)
+		{
+			for (int i=elseIfIndexesStart; i<expr.children.size(); i++)
+			{
+				compile_expression(expr.children[i]);
+			}
+		}
+		else if (elseIndex > -1)
+		{
+			compile_expression(expr.children[elseIndex]);
+		}
+
 		m_opcodes.push_back(end);
+	}
+	else if (expr.type == ExpressionType::ELSEIF_DECLARATION)
+	{
+		auto booleanExpression = expr.children[0];
+		Opcode elseIfHeader;
+		elseIfHeader.type = OpcodeType::ELSE_IF_BLK_HEADER;
+
+		m_opcodes.push_back(elseIfHeader);
+
+		EnsureValidBooleanExpression(booleanExpression);
+		factor_expression(booleanExpression);
+		for (auto e : vector(expr.children.begin()+1, expr.children.end()))
+		{
+			compile_expression(e);
+		}
+	}
+	else if (expr.type == ExpressionType::ELSE_DECLARATION)
+	{
+		auto booleanExpression = expr.children[0];
+		Opcode elseHeader;
+		elseHeader.type = OpcodeType::ELSE_BLK_HEADER;
+
+		m_opcodes.push_back(elseHeader);
+
+		for (auto e : vector(expr.children.begin(), expr.children.end()))
+		{
+			compile_expression(e);
+		}
 	}
 	else if (expr.type == ExpressionType::FOREACHPLAYER_DECLARATION)
 	{
@@ -914,22 +986,66 @@ int Program::run(Opcode code, bool load)
     }
 	else if (code.type == OpcodeType::IF_BLK_HEADER)
 	{
-		m_current_opcode_index++;
-		bool enter_block = resolve_bool_expression();
+		bool foundExecutableBlock = false;
+		int depth = 0;
+		bool firstLoop = true;
+		while (!foundExecutableBlock && !(m_opcodes[m_current_opcode_index].type == OpcodeType::BLK_END && depth == 0))
+		{
+			Opcode currentCode = m_opcodes[m_current_opcode_index];
 
-		if (enter_block)
-		{
-			m_depth++;
-			m_proc_mode_stack.push_back(PROC_MODE::IF);
-			m_block_name_stack.push_back("__IF");
-			AttrCont cont;
-			m_locale_stack.push_back(cont);
+			if (firstLoop || currentCode.type == OpcodeType::ELSE_IF_BLK_HEADER)
+			{
+				m_current_opcode_index++;
+				foundExecutableBlock = resolve_bool_expression();
+
+				if (foundExecutableBlock)
+				{
+					// execute it right away, since no other block matched
+					m_depth++;
+					m_proc_mode_stack.push_back(PROC_MODE::IF);
+					m_block_name_stack.push_back("__IF");
+					AttrCont cont;
+					m_locale_stack.push_back(cont);
+				}
+
+			}
+			else if (currentCode.type == OpcodeType::ELSE_BLK_HEADER)
+			{
+				foundExecutableBlock = true;
+				m_current_opcode_index++;
+				// execute it right away, since no other block matched
+				m_depth++;
+				m_proc_mode_stack.push_back(PROC_MODE::IF);
+				m_block_name_stack.push_back("__IF");
+				AttrCont cont;
+				m_locale_stack.push_back(cont);
+			}
+			else
+			{
+				if (is_block_start())
+				{
+					depth++;
+				}
+				else if (is_block_end())
+				{
+					depth--;
+				}
+				m_current_opcode_index++;
+			}
+
+			firstLoop = false;
 		}
-		else
+
+		if (!foundExecutableBlock && m_opcodes[m_current_opcode_index].type == OpcodeType::BLK_END)
 		{
-			m_current_opcode_index--;
-			ignore_block();
+			m_current_opcode_index++;
 		}
+	}
+	else if (code.type == OpcodeType::ELSE_BLK_HEADER || code.type == OpcodeType::ELSE_IF_BLK_HEADER)
+	{
+		// we're here because we just executed part of an if / else block, and now we need to skip the rest of it
+		m_current_opcode_index --;
+		ignore_block();
 	}
 	else if (code.type == OpcodeType::FOREACHPLAYER_BLK_HEADER)
 	{
@@ -1413,6 +1529,51 @@ int Program::run(Opcode code, bool load)
 	return 0;
 }
 
+bool Program::is_block_start()
+{
+	auto type = m_opcodes[m_current_opcode_index].type;
+	if (type == OpcodeType::CARD_BLK_HEADER)
+		return true;
+
+	if (type == OpcodeType::FOREACHPLAYER_BLK_HEADER)
+		return true;
+
+	if (type == OpcodeType::GAME_BLK_HEADER)
+		return true;
+
+	if (type == OpcodeType::IF_BLK_HEADER)
+		return true;
+
+	if (type == OpcodeType::ELSE_IF_BLK_HEADER)
+		return true;
+
+	if (type == OpcodeType::ELSE_BLK_HEADER)
+		return true;
+
+	if (type == OpcodeType::PHASE_BLK_HEADER)
+		return true;
+
+	if (type == OpcodeType::SETUP_BLK_HEADER)
+		return true;
+
+	if (type == OpcodeType::TURN_BLK_HEADER)
+		return true;
+
+	return false;
+}
+
+bool Program::is_block_end()
+{
+	auto type = m_opcodes[m_current_opcode_index].type;
+	if (type == OpcodeType::BLK_END)
+		return true;
+
+	if (type == OpcodeType::FOREACHPLAYER_BLK_END)
+		return true;
+
+	return false;
+}
+
 void Program::ignore_block()
 {
 	int depth = 1;
@@ -1420,33 +1581,14 @@ void Program::ignore_block()
 	while (depth > 0)
 	{
 		m_current_opcode_index++;
-		auto type = m_opcodes[m_current_opcode_index].type;
-		if (type == OpcodeType::CARD_BLK_HEADER)
+		if (is_block_start())
+		{
 			depth++;
-
-		if (type == OpcodeType::FOREACHPLAYER_BLK_HEADER)
-			depth++;
-
-		if (type == OpcodeType::GAME_BLK_HEADER)
-			depth++;
-
-		if (type == OpcodeType::IF_BLK_HEADER)
-			depth++;
-
-		if (type == OpcodeType::PHASE_BLK_HEADER)
-			depth++;
-
-		if (type == OpcodeType::SETUP_BLK_HEADER)
-			depth++;
-
-		if (type == OpcodeType::TURN_BLK_HEADER)
-			depth++;
-
-		if (type == OpcodeType::BLK_END)
-			depth--;
-
-		if (type == OpcodeType::FOREACHPLAYER_BLK_END)
-			depth--;
+		}
+		else if (is_block_end())
+		{
+			depth --;
+		}
 	}
 	m_current_opcode_index++;
 }

@@ -38,6 +38,8 @@ enum class OpcodeType
     PHASE_BLK_HEADER,
     TURN_BLK_HEADER,
     IF_BLK_HEADER,
+    ELSE_IF_BLK_HEADER,
+    ELSE_BLK_HEADER,
     FOREACHPLAYER_BLK_HEADER,
     FOREACHPLAYER_BLK_END,
     BLK_END,
@@ -267,6 +269,8 @@ private:
     static AttributeType s_type_code_to_attribute_type(TYPE_CODE_T);
 
     void ignore_block();
+    bool is_block_start();
+    bool is_block_end();
     void compile_expression(Expression);
     void compile_factor_from_number(int number);
 

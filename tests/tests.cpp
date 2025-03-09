@@ -668,3 +668,82 @@ TEST(CompilerTest, TransferNamedCard)
     EXPECT_EQ(p.game().stacks[0].cards.size(), 10);
     EXPECT_EQ(p.game().stacks[0].cards[0].ID, 0);
 }
+
+TEST(CompilerTest, if_ifelse)
+{
+    auto lines = std::vector<std::string>() =
+    {
+        "game test start",
+            "visiblestack a",
+            "card A start end",
+            "card B start end",
+            "place A -> a 1",
+            "if a.top == B start",
+                "place B -> a 19",
+            "elseif a.top == A then",
+                "place A -> a 9",
+            "end",
+        "end"
+    };
+
+    Battler::Program p;
+    p.Compile(lines);
+    p.Run();
+    EXPECT_EQ(p.game().stacks[0].cards.size(), 10);
+    EXPECT_EQ(p.game().stacks[0].cards[0].ID, 0);
+}
+
+TEST(CompilerTest, if_ifelse_else)
+{
+    auto lines = std::vector<std::string>() =
+    {
+        "game test start",
+            "visiblestack a",
+            "card A start end",
+            "card B start end",
+            "card C start end",
+            "place C -> a 1",
+            "if a.top == B start",
+                "place B -> a 19",
+                "if a.top == B start end",
+            "elseif a.top == A then",
+                "place A -> a 9",
+            "else",
+                "place C -> a 9",
+            "end",
+        "end"
+    };
+
+    Battler::Program p;
+    p.Compile(lines);
+    p.Run();
+    EXPECT_EQ(p.game().stacks[0].cards.size(), 10);
+    EXPECT_EQ(p.game().stacks[0].cards[0].ID, 2);
+}
+
+TEST(CompilerTest, if_ifelse_NoMatchingBlock)
+{
+    auto lines = std::vector<std::string>() =
+    {
+        "game test start",
+            "visiblestack a",
+            "card A start end",
+            "card B start end",
+            "card C start end",
+            "place C -> a 1",
+            "if a.top == B start",
+                "place B -> a 19",
+                "if a.top == B start end",
+            "elseif a.top == A then",
+                "place A -> a 9",
+            "end",
+            "place C -> a 1",
+        "end"
+    };
+
+    Battler::Program p;
+    p.Compile(lines);
+    p.Run();
+    EXPECT_EQ(p.game().stacks[0].cards.size(), 2);
+    EXPECT_EQ(p.game().stacks[0].cards[0].ID, 2);
+}
