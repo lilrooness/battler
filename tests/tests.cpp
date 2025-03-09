@@ -25,12 +25,12 @@ TEST(EndToEndTests, BasicGame)
             "visiblestack b",
             
             "setup start",
-                "random Parent -> a top 1",
+                "random Parent -> a 1",
             "end",
         
             "turn start",
                 "a -> b top 1",
-                "random Parent ->_ b top 1",
+                "random Parent ->_ b 1",
             "end",
         
         "end"
@@ -105,11 +105,11 @@ TEST(EndToEndTests, ChooseMoveInstr)
             "visiblestack b",
             
             "setup start",
-                "random Parent -> a top 1",
+                "random Parent -> a 1",
             "end",
         
             "turn start",
-                "choose a -> b top 1",
+                "choose a -> b 1",
             "end",
         
         "end"
@@ -158,7 +158,7 @@ TEST(EndToEndTests, CutTest)
             "visiblestack b",
             
             "setup start",
-                "random Parent -> a top 20",
+                "random Parent -> a 20",
             "end",
         
             "turn start",
@@ -225,7 +225,7 @@ TEST(EndToEndTests, ChooseCutTest)
             "visiblestack b",
             
             "setup start",
-                "random Parent -> a top 20",
+                "random Parent -> a 20",
             "end",
         
             "turn start",
@@ -306,9 +306,9 @@ TEST(EndToEndTests, MoveFromSelection)
         "visiblestack c",
 
         "setup start",
-            "random Parent -> a top 20",
-            "random Parent -> b top 20",
-            "random Parent -> c top 1"
+            "random Parent -> a 20",
+            "random Parent -> b 20",
+            "random Parent -> c 1"
         "end",
 
         "turn start",
@@ -377,7 +377,7 @@ TEST(EndToEndTests, MoveToSelection)
                 "visiblestack c",
 
                 "setup start",
-                    "random Parent -> a top 20",
+                    "random Parent -> a 20",
                 "end",
 
                 "turn start",
@@ -445,7 +445,7 @@ TEST(EndToEndTests, MoveFromAndToSelection)
             "visiblestack c",
 
             "setup start",
-            "random Parent -> a top 20",
+            "random Parent -> a 20",
             "end",
 
             "turn start",
@@ -501,11 +501,11 @@ TEST(CompilerTest, Compare_stackPosref_Card)
             "card P start end",
             "card C P start end",
             "visiblestack a",
-            "random P -> a top 10",
+            "random P -> a 10",
             "if a.top == C start",
-                "random P -> a top 10",
-                "random P -> a top 10",
-                "random P -> a top 10",
+                "random P -> a 10",
+                "random P -> a 10",
+                "random P -> a 10",
             "end",
         "end"
     };
@@ -528,11 +528,11 @@ TEST(CompilerTest, ResolveCardAttributesFromStackPosition)
                 "x = 0",
             "end",
             "visiblestack a",
-            "random P -> a top 10",
+            "random P -> a 10",
             "if a.top.x == 0 start",
-                "random P -> a top 10",
-                "random P -> a top 10",
-                "random P -> a top 10",
+                "random P -> a 10",
+                "random P -> a 10",
+                "random P -> a 10",
             "end",
         "end"
     };
@@ -555,11 +555,11 @@ TEST(CompilerTest, LessThan)
                 "x = 10",
             "end",
             "visiblestack a",
-            "random P -> a top 10",
+            "random P -> a 10",
             "if a.top.x < 20 start",
-                "random P -> a top 10",
-                "random P -> a top 10",
-                "random P -> a top 10",
+                "random P -> a 10",
+                "random P -> a 10",
+                "random P -> a 10",
             "end",
         "end"
     };
@@ -582,11 +582,11 @@ TEST(CompilerTest, greatherThan)
                 "x = 10",
             "end",
             "visiblestack a",
-            "random P -> a top 10",
+            "random P -> a 10",
             "if a.top.x > 5 start",
-                "random P -> a top 10",
-                "random P -> a top 10",
-                "random P -> a top 10",
+                "random P -> a 10",
+                "random P -> a 10",
+                "random P -> a 10",
             "end",
         "end"
     };
@@ -636,11 +636,11 @@ TEST(CompilerTest, BracketExpression)
                 "x = 20",
             "end",
             "visiblestack a",
-            "random P1 -> a top 1",
-            "random P2 -> a top 1",
+            "random P1 -> a 1",
+            "random P2 -> a 1",
 
             "if a.top.x > (a.top-1).x - 1 start",
-                "random P1 -> a top 10",
+                "random P1 -> a 10",
             "end",
         "end"
     };
@@ -649,4 +649,22 @@ TEST(CompilerTest, BracketExpression)
     p.Compile(lines);
     p.Run();
     EXPECT_EQ(p.game().stacks.begin()->second.cards.size(), 12);
+}
+
+TEST(CompilerTest, TransferNamedCard)
+{
+    auto lines = std::vector<std::string>() =
+    {
+        "game test start",
+            "visiblestack a",
+            "card A start end",
+            "place A -> a 10"
+        "end"
+    };
+
+    Battler::Program p;
+    p.Compile(lines);
+    p.Run();
+    EXPECT_EQ(p.game().stacks[0].cards.size(), 10);
+    EXPECT_EQ(p.game().stacks[0].cards[0].ID, 0);
 }

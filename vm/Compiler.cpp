@@ -428,7 +428,9 @@ void Program::compile_expression(Expression expr)
             } else if (sourceStackExpr.type == ExpressionType::STACK_MOVE_CHOOSE_SOURCE) {
                 sourceStackOpcode.type = OpcodeType::IDENTIFIER;
                 sourceLocationOpcode.type = OpcodeType::CHOOSE;
-            }
+            } else if (sourceStackExpr.type == ExpressionType::STACK_MOVE_SPECIFIC_CARD_SOURCE) {
+        		sourceStackOpcode.type = OpcodeType::SPECIFIC_CARD;
+        	}
         }
 
         //  Set operator opcode type
@@ -758,6 +760,13 @@ bool Program::CompleteStackTransfer(StackTransferStateTracker state)
 			cardsToMove.push_back(m_game.GenerateCard(matching_cards[rand() % matching_cards.size()].name));
 		}
     }
+	else if (m_stackTransferStateTracker.specificCardGeneration)
+	{
+		for (int i=0; i<m_stackTransferStateTracker.nExpected; i++)
+		{
+			cardsToMove.push_back(m_game.GenerateCard(m_stackTransferStateTracker.specificCardName));
+		}
+	}
     else if (m_stackTransferStateTracker.transferType == StackTransferType::MOVE)
     {
         cardsToMove = m_stackTransferStateTracker.cardsToMove;
@@ -784,7 +793,7 @@ bool Program::CompleteStackTransfer(StackTransferStateTracker state)
     {
         std::cerr << "Stack transfer is not of any recognised type" << std::endl;
     }
-    if (!m_stackTransferStateTracker.randomSource)
+    if (!m_stackTransferStateTracker.randomSource && !m_stackTransferStateTracker.specificCardGeneration)
     {
         for(Card c : cardsToMove)
         {
@@ -1118,6 +1127,18 @@ int Program::run(Opcode code, bool load)
             m_stackTransferStateTracker.randomSource = true;
             m_stackTransferStateTracker.randomSourceParentCard = card_type[0];
         }
+    	else if (sourceOpcode.type == OpcodeType::SPECIFIC_CARD)
+    	{
+    		m_current_opcode_index++;
+    		vector<string> card_type;
+    		read_name(card_type, m_opcodes[m_current_opcode_index].type);
+
+    		assert(card_type.size() == 1);
+
+    		Card c = m_game.GenerateCard(card_type[0]);
+    		m_stackTransferStateTracker.specificCardName = card_type[0];
+    		m_stackTransferStateTracker.specificCardGeneration = true;
+    	}
     }
     else if (code.type == OpcodeType::STACK_SOURCE_LOCATION) {
         m_waitingForUserInteraction = false;
@@ -1158,7 +1179,7 @@ int Program::run(Opcode code, bool load)
         int numberToTake = resolve_number_expression();
 
         auto sourceStack = m_game.stacks[m_stackTransferStateTracker.srcStackID];
-        if (!m_stackTransferStateTracker.randomSource)
+        if (!m_stackTransferStateTracker.randomSource && !m_stackTransferStateTracker.specificCardGeneration)
         {
             numberToTake = std::min(numberToTake, (int)sourceStack.cards.size());
             vector<Card> cardsTaken;

@@ -91,6 +91,8 @@ enum class OpcodeType
     CHOOSE,
     // Random indicator in stack transfer
     RANDOM,
+    // specific card indicator in stack transfer
+    SPECIFIC_CARD,
     // indication of identifier in stack transfer
     IDENTIFIER,
     // indication of a move transfer
@@ -190,9 +192,12 @@ class StackTransferStateTracker
 public:
     StackTransferType transferType;
     bool randomSource{false};
+    bool specificCardGeneration{false};
+    std::string specificCardName;
+
     std::string randomSourceParentCard;
-    int srcStackID;
-    int dstStackID;
+    int srcStackID{0};
+    int dstStackID{0};
     int nExpected{0};
     bool dstTop;
     bool srcTop;

@@ -291,14 +291,22 @@ namespace Battler {
 
         expr.type = ExpressionType::STACK_MOVE_SOURCE;
 
-        if (current->text == "random") {
+        if (current->text == "random")
+        {
             ensureNoEOF(++current, end);
             expr.type = ExpressionType::STACK_MOVE_RANDOM_SOURCE;
         }
         
-        else if  (current->text == "choose") {
+        else if  (current->text == "choose")
+        {
             ensureNoEOF(++current, end);
             expr.type = ExpressionType::STACK_MOVE_CHOOSE_SOURCE;
+        }
+
+        else if (current->text == "place")
+        {
+            ensureNoEOF(++current, end);
+            expr.type = ExpressionType::STACK_MOVE_SPECIFIC_CARD_SOURCE;
         }
 
         //expr.tokens = GetIdentifierTokens(current, end);
@@ -360,7 +368,7 @@ namespace Battler {
         if (requirePosition)
         {
             ensureNoEOF(++current, end);
-            ensureTokenType(TokenType::name, *current, "Expected one of 'choose', 'top' or 'bottom' here");
+            ensureTokenType(TokenType::name, *current, "Expected one of 'top' or 'bottom' here");
 
             if (current->text == "top") {
                 expr.type = ExpressionType::STACK_SOURCE_TOP;
@@ -372,6 +380,9 @@ namespace Battler {
                 throw UnexpectedTokenException(*current, "Expected one of 'top' or 'bottom' here");
             }
             expr.tokens.push_back(*current);
+        }
+        else {
+            expr.type = ExpressionType::STACK_SOURCE_TOP;
         }
 
         if (hasMultipleIdentifiers)
@@ -437,6 +448,7 @@ namespace Battler {
         ensureNoEOF(++current, end);
 
         bool requireAmount = true;
+        bool requirePosition = true;
 
         if (sourceStackExpr.type == ExpressionType::STACK_MOVE_CHOOSE_SOURCE
         && (operationExpr.type == ExpressionType::STACK_CUT_UNDER
@@ -445,7 +457,14 @@ namespace Battler {
             requireAmount = false;
         }
 
-        targetStackExpr = GetStackMoveTargetExpression(current, end, true, requireAmount);
+        if (sourceStackExpr.type == ExpressionType::STACK_MOVE_RANDOM_SOURCE
+            || sourceStackExpr.type == ExpressionType::STACK_MOVE_SPECIFIC_CARD_SOURCE
+            || sourceStackExpr.type == ExpressionType::STACK_MOVE_CHOOSE_SOURCE)
+        {
+            requirePosition = false;
+        }
+
+        targetStackExpr = GetStackMoveTargetExpression(current, end, requirePosition, requireAmount);
 
         expr.children.push_back(sourceStackExpr);
         expr.children.push_back(operationExpr);
@@ -620,6 +639,7 @@ namespace Battler {
                 // (this allows them not to be immediately evauated as an attribute declaration, even if `random StacName ...` looks like one)
                 else if (current->text == "random") {}
                 else if (current->text == "choose") {}
+                else if (current->text == "place") {}
                 else if ((current + 1) != end && (current + 1)->type == TokenType::name) {
                     return GetAttrDeclarationExpression(current, end);
                 }
