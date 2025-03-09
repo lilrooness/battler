@@ -747,3 +747,60 @@ TEST(CompilerTest, if_ifelse_NoMatchingBlock)
     EXPECT_EQ(p.game().stacks[0].cards.size(), 2);
     EXPECT_EQ(p.game().stacks[0].cards[0].ID, 2);
 }
+
+TEST(CompilerTest, if_else)
+{
+    auto lines = std::vector<std::string>() =
+    {
+        "game test start",
+            "visiblestack a",
+            "card A start end",
+            "card B start end",
+            "place B -> a 1",
+            "if a.top == B start",
+                "place B -> a 19",
+            "else",
+                "place A -> a 9",
+            "end",
+        "end"
+    };
+
+    Battler::Program p;
+    p.Compile(lines);
+    p.Run();
+    EXPECT_EQ(p.game().stacks[0].cards.size(), 20);
+    EXPECT_EQ(p.game().stacks[0].cards[0].ID, 1);
+}
+
+TEST(CompilerTest, test_ifelseblock_insideTurn)
+{
+    auto lines = std::vector<std::string>() =
+    {
+        "game test start",
+            "visiblestack a",
+            "card A start end",
+            "card B start end",
+
+            "setup start",
+                "place B -> a 1",
+            "end",
+
+            "turn start",
+                "if a.top == B start",
+                    "place B -> a 19",
+                "else",
+                    "place A -> a 9",
+                "end",
+            "end",
+        "end"
+    };
+
+    Battler::Program p;
+    p.Compile(lines);
+    p.Run(true);
+    p.RunSetup();
+    p.RunTurn();
+
+    EXPECT_EQ(p.game().stacks[0].cards.size(), 20);
+    EXPECT_EQ(p.game().stacks[0].cards[0].ID, 1);
+}
