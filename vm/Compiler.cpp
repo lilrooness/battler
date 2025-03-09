@@ -1810,6 +1810,11 @@ bool Program::compare_attrs(Attr a, Attr b)
 		int stackAID = std::get<0>(a.stackPositionRef);
 		int stackAPos = std::get<1>(a.stackPositionRef);
 		auto stackA = m_game.stacks[stackAID];
+		if (stackA.cards.empty())
+		{
+			return false;
+		}
+
 		auto cardFromA = stackA.cards[stackAPos];
 
 		if (b.type == AttributeType::STACK_POSITION_REF)
@@ -1817,12 +1822,19 @@ bool Program::compare_attrs(Attr a, Attr b)
 			int stackBID = std::get<0>(b.stackPositionRef);
 			int stackBPos = std::get<1>(b.stackPositionRef);
 
+			auto stackB = m_game.stacks[stackBID];
+
+			if (stackB.cards.empty())
+			{
+				return false;
+			}
+
 			if (stackAID == stackBID && stackAPos == stackBPos)
 			{
 				return true;
 			}
 
-			auto stackB = m_game.stacks[stackBID];
+
 			auto cardFromB = stackB.cards[stackBPos];
 
 			return cardFromA.ID == cardFromB.ID;

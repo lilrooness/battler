@@ -493,7 +493,7 @@ TEST(EndToEndTests, MoveFromAndToSelection)
     EXPECT_FALSE(p.m_waitingForUserInteraction);
 }
 
-TEST(CompilerTest, Compare_stackPosref_Card)
+TEST(VMTtest, Compare_stackPosref_Card)
 {
     auto lines = std::vector<std::string>() =
     {
@@ -516,7 +516,7 @@ TEST(CompilerTest, Compare_stackPosref_Card)
     EXPECT_EQ(p.game().stacks.begin()->second.cards.size(), 40);
 }
 
-TEST(CompilerTest, ResolveCardAttributesFromStackPosition)
+TEST(VMTtest, ResolveCardAttributesFromStackPosition)
 {
     auto lines = std::vector<std::string>() =
     {
@@ -543,7 +543,7 @@ TEST(CompilerTest, ResolveCardAttributesFromStackPosition)
     EXPECT_EQ(p.game().stacks.begin()->second.cards.size(), 40);
 }
 
-TEST(CompilerTest, LessThan)
+TEST(VMTtest, LessThan)
 {
     auto lines = std::vector<std::string>() =
     {
@@ -570,7 +570,7 @@ TEST(CompilerTest, LessThan)
     EXPECT_EQ(p.game().stacks.begin()->second.cards.size(), 40);
 }
 
-TEST(CompilerTest, greatherThan)
+TEST(VMTtest, greatherThan)
 {
     auto lines = std::vector<std::string>() =
     {
@@ -597,7 +597,7 @@ TEST(CompilerTest, greatherThan)
     EXPECT_EQ(p.game().stacks.begin()->second.cards.size(), 40);
 }
 
-TEST(CompilerTest, DeclareLooser)
+TEST(VMTtest, DeclareLooser)
 {
     auto lines = std::vector<std::string>() =
     {
@@ -618,7 +618,7 @@ TEST(CompilerTest, DeclareLooser)
 }
 
 
-TEST(CompilerTest, BracketExpression)
+TEST(VMTtest, BracketExpression)
 {
     auto lines = std::vector<std::string>() =
     {
@@ -651,7 +651,7 @@ TEST(CompilerTest, BracketExpression)
     EXPECT_EQ(p.game().stacks.begin()->second.cards.size(), 12);
 }
 
-TEST(CompilerTest, TransferNamedCard)
+TEST(VMTtest, TransferNamedCard)
 {
     auto lines = std::vector<std::string>() =
     {
@@ -669,7 +669,7 @@ TEST(CompilerTest, TransferNamedCard)
     EXPECT_EQ(p.game().stacks[0].cards[0].ID, 0);
 }
 
-TEST(CompilerTest, if_ifelse)
+TEST(VMTtest, if_ifelse)
 {
     auto lines = std::vector<std::string>() =
     {
@@ -693,7 +693,7 @@ TEST(CompilerTest, if_ifelse)
     EXPECT_EQ(p.game().stacks[0].cards[0].ID, 0);
 }
 
-TEST(CompilerTest, if_ifelse_else)
+TEST(VMTtest, if_ifelse_else)
 {
     auto lines = std::vector<std::string>() =
     {
@@ -721,7 +721,7 @@ TEST(CompilerTest, if_ifelse_else)
     EXPECT_EQ(p.game().stacks[0].cards[0].ID, 2);
 }
 
-TEST(CompilerTest, if_ifelse_NoMatchingBlock)
+TEST(VMTtest, if_ifelse_NoMatchingBlock)
 {
     auto lines = std::vector<std::string>() =
     {
@@ -748,7 +748,7 @@ TEST(CompilerTest, if_ifelse_NoMatchingBlock)
     EXPECT_EQ(p.game().stacks[0].cards[0].ID, 2);
 }
 
-TEST(CompilerTest, if_else)
+TEST(VMTest, if_else)
 {
     auto lines = std::vector<std::string>() =
     {
@@ -772,7 +772,7 @@ TEST(CompilerTest, if_else)
     EXPECT_EQ(p.game().stacks[0].cards[0].ID, 1);
 }
 
-TEST(CompilerTest, test_ifelseblock_insideTurn)
+TEST(VMTtest, test_ifelseblock_insideTurn)
 {
     auto lines = std::vector<std::string>() =
     {
@@ -803,4 +803,43 @@ TEST(CompilerTest, test_ifelseblock_insideTurn)
 
     EXPECT_EQ(p.game().stacks[0].cards.size(), 20);
     EXPECT_EQ(p.game().stacks[0].cards[0].ID, 1);
+}
+
+TEST(VMTtest, transferFromEmptyStack)
+{
+    auto lines = std::vector<std::string>() =
+    {
+        "game test start",
+            "visiblestack a",
+            "visiblestack b",
+
+            "a -> b top 1",
+        "end"
+    };
+
+    Battler::Program p;
+    p.Compile(lines);
+    p.Run();
+    EXPECT_EQ(p.game().stacks[0].cards.size(), 0);
+    EXPECT_EQ(p.game().stacks[1].cards.size(), 0);
+}
+
+TEST(VMTtest, testCardFromEmptyStack)
+{
+    auto lines = std::vector<std::string>() =
+    {
+        "game test start",
+            "visiblestack a",
+            "visiblestack b",
+
+            "if a.bottom == b.bottom start end",
+            "if a.top == b.top start end",
+        "end"
+    };
+
+    Battler::Program p;
+    p.Compile(lines);
+    p.Run();
+    EXPECT_EQ(p.game().stacks[0].cards.size(), 0);
+    EXPECT_EQ(p.game().stacks[0].cards.size(), 0);
 }
