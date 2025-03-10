@@ -169,7 +169,23 @@ void Program::factor_expression(Expression expr)
 		m_opcodes.push_back(CS_START);
 		for (auto c : expr.children)
 		{
-			compile_name(c.tokens, true);
+            if (c.type == ExpressionType::CARD_SEQUENCE_MATCH_ANYCARD)
+            {
+                Opcode op;
+                op.type = OpcodeType::CARD_SEQUENCE_MATCH_ANYCARD;
+                m_opcodes.push_back(op);
+            }
+            else if (c.type == ExpressionType::CARD_SEQUENCE_MATCH_REST)
+            {
+                Opcode op;
+                op.type = OpcodeType::CARD_SEQUENCE_MATCH_REST;
+                m_opcodes.push_back(op);
+            }
+            else
+            {
+                compile_name(c.tokens, true);
+            }
+
 		}
 		m_opcodes.push_back(CS_END);
 
@@ -1815,58 +1831,70 @@ bool Program::compare_greatherthan_attrs(Attr a, Attr b)
 	throw VMError("Cannot perform '>' operation on these types");
 }
 
-bool Program::compare_attrs(Attr a, Attr b)
-{
-	if (b.type == AttributeType::STACK_POSITION_REF)
-	{
-		//swap a & b, ensure that 'a' is the stack ref (if they both are, it doesn't matter)
-		auto tmp = b;
-		b = a;
-		a = tmp;
-	}
-	if (a.type == AttributeType::STACK_POSITION_REF)
-	{
-		int stackAID = std::get<0>(a.stackPositionRef);
-		int stackAPos = std::get<1>(a.stackPositionRef);
-		auto stackA = m_game.stacks[stackAID];
-		if (stackA.cards.empty())
-		{
-			return false;
-		}
+bool Program::compare_attrs(Attr a, Attr b) {
 
-		auto cardFromA = stackA.cards[stackAPos];
+    if (b.type == AttributeType::STACK_POSITION_REF) {
+        //swap a & b, ensure that 'a' is the stack ref (if they both are, it doesn't matter)
+        auto tmp = b;
+        b = a;
+        a = tmp;
+    } else if (a.type != AttributeType::STACK_POSITION_REF && b.type == AttributeType::STACK_REF) {
+        //swap a & b, ensure that 'a' is the stack ref (if they both are, it doesn't matter)
+        auto tmp = b;
+        b = a;
+        a = tmp;
+    }
 
-		if (b.type == AttributeType::STACK_POSITION_REF)
-		{
-			int stackBID = std::get<0>(b.stackPositionRef);
-			int stackBPos = std::get<1>(b.stackPositionRef);
+    if (a.type == AttributeType::STACK_POSITION_REF) {
+        int stackAID = std::get<0>(a.stackPositionRef);
+        int stackAPos = std::get<1>(a.stackPositionRef);
+        auto stackA = m_game.stacks[stackAID];
+        if (stackA.cards.empty()) {
+            return false;
+        }
 
-			auto stackB = m_game.stacks[stackBID];
+        auto cardFromA = stackA.cards[stackAPos];
 
-			if (stackB.cards.empty())
-			{
-				return false;
-			}
+        if (b.type == AttributeType::STACK_POSITION_REF) {
+            int stackBID = std::get<0>(b.stackPositionRef);
+            int stackBPos = std::get<1>(b.stackPositionRef);
 
-			if (stackAID == stackBID && stackAPos == stackBPos)
-			{
-				return true;
-			}
+            auto stackB = m_game.stacks[stackBID];
+
+            if (stackB.cards.empty()) {
+                return false;
+            }
+
+            if (stackAID == stackBID && stackAPos == stackBPos) {
+                return true;
+            }
 
 
-			auto cardFromB = stackB.cards[stackBPos];
+            auto cardFromB = stackB.cards[stackBPos];
 
-			return cardFromA.ID == cardFromB.ID;
-		}
-		else if (b.type == AttributeType::CARD_REF)
-		{
-			return m_game.cards[b.cardRef].ID == cardFromA.ID;
-		}
-		else
-		{
-			throw VMError("Stack Posistion References may only be compared to Cards and other Stack Position References");
-		}
-	}
+            return cardFromA.ID == cardFromB.ID;
+        } else if (b.type == AttributeType::CARD_REF) {
+            return m_game.cards[b.cardRef].ID == cardFromA.ID;
+        } else {
+            throw VMError(
+                    "Stack Posistion References may only be compared to Cards and other Stack Position References");
+        }
+    }
+    else if (a.type == AttributeType::STACK_REF)
+    {
+        if (b.type == AttributeType::STACK_REF)
+        {
+            return a.stackRef == b.stackRef;
+        }
+
+        if (b.type == AttributeType::CARD_SEQUENCE)
+        {
+            return m_game.stacks[a.stackRef].EqualsSequenceExactly(b.cardSquence);
+        }
+
+        throw VMError("Stack References may only be compared to card sequences or other stack references");
+
+    }
 	else if (a.type != b.type)
 	{
 		throw VMError("Unable to compare these different attributes");
@@ -2161,6 +2189,57 @@ Attr Program::resolve_expression_to_attr()
 		return dynamicallyResolvedAttribute;
 
 	}
+    else if (m_opcodes[m_current_opcode_index].type == OpcodeType::CARD_SEQUENCE_START)
+    {
+        m_current_opcode_index++;
+        Attr cardSequenceAttr;
+        cardSequenceAttr.type = AttributeType::CARD_SEQUENCE;
+
+        while (m_opcodes[m_current_opcode_index].type == OpcodeType::L_VALUE
+        || m_opcodes[m_current_opcode_index].type == OpcodeType::CARD_SEQUENCE_MATCH_ANYCARD
+        || m_opcodes[m_current_opcode_index].type == OpcodeType::CARD_SEQUENCE_MATCH_REST )
+        {
+            if (m_opcodes[m_current_opcode_index].type == OpcodeType::CARD_SEQUENCE_MATCH_ANYCARD)
+            {
+                CardMatcher m;
+                m.type = CardMatcherType::ANY;
+                cardSequenceAttr.cardSquence.push_back(m);
+                m_current_opcode_index++;
+            }
+            else if (m_opcodes[m_current_opcode_index].type == OpcodeType::CARD_SEQUENCE_MATCH_REST)
+            {
+                CardMatcher m;
+                m.type = CardMatcherType::REST;
+                cardSequenceAttr.cardSquence.push_back(m);
+                m_current_opcode_index++;
+            }
+            else
+            {
+                vector<std::string> name;
+                read_name(name, OpcodeType::L_VALUE);
+
+                if (name.empty())
+                {
+                    VMError("Could not read Card name from sequence");
+                }
+                Card c = m_game.cards[name[0]];
+                CardMatcher m;
+                m.type = CardMatcherType::ID;
+                m.id = c.ID;
+                cardSequenceAttr.cardSquence.push_back(m);
+            }
+
+        }
+
+        if (m_opcodes[m_current_opcode_index].type != OpcodeType::CARD_SEQUENCE_END)
+        {
+            throw VMError("Encountered wrong opcode, VM expected CARD_SEQUENCE_END");
+        }
+
+        m_current_opcode_index++;
+
+        return cardSequenceAttr;
+    }
 	else
 	{
 		throw VMError("Expression -> attr conversion is unsupported for this expression type");

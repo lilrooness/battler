@@ -32,6 +32,8 @@ namespace Battler {
         cut,
         cut_under,
 		comment,
+        underscore,
+        colon,
 	};
 
 
