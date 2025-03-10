@@ -126,6 +126,26 @@ namespace Battler {
 			t.type = TokenType::dot;
 			return make_pair(t, begin + 1);
 		}
+		else if (*begin == '[') {
+			t.text.push_back('[');
+			t.type = TokenType::open_sq_br;
+			return make_pair(t, begin + 1);
+		}
+		else if (*begin == ']') {
+			t.text.push_back(']');
+			t.type = TokenType::close_sq_br;
+			return make_pair(t, begin + 1);
+		}
+        else if (*begin == '_') {
+            t.text.push_back('_');
+            t.type = TokenType::underscore;
+            return make_pair(t, begin + 1);
+        }
+        else if (*begin == ':') {
+            t.text.push_back(':');
+            t.type = TokenType::colon;
+            return make_pair(t, begin + 1);
+        }
 		// the catch all unknown chars case
 		else if (!std::isalnum(*begin)) {
 			t.text.push_back(*begin);

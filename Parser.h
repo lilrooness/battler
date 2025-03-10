@@ -21,6 +21,8 @@ namespace Battler {
 		space,
 		openbr,
 		closebr,
+		open_sq_br,
+		close_sq_br,
 		dquote,
 		unknown,
 		comma,
@@ -30,6 +32,8 @@ namespace Battler {
         cut,
         cut_under,
 		comment,
+        underscore,
+        colon,
 	};
 
 

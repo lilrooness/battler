@@ -18,7 +18,7 @@ namespace Battler {
 class Card;
 class AttributeContainer;
 
-enum class AttributeType {INT, FLOAT, STRING, BOOL, CARD_REF, STACK_REF, PLAYER, PLAYER_REF, PHASE_REF, STACK_POSITION_REF, UNDEFINED};
+enum class AttributeType {INT, FLOAT, STRING, BOOL, CARD_REF, STACK_REF, PLAYER, PLAYER_REF, PHASE_REF, STACK_POSITION_REF, CARD_SEQUENCE, UNDEFINED};
 enum class Scope {LOCAL, GAME};
 
 using std::cout;
@@ -41,6 +41,16 @@ enum class StackType {
     FLAT_HIDDEN
 };
 
+enum class CardMatcherType {
+    ID, ANY, REST
+};
+
+class CardMatcher {
+public:
+    CardMatcherType type;
+    int id;
+};
+
 class Attr {
     public:
         Attr() {}
@@ -51,6 +61,7 @@ class Attr {
         std::tuple<int, int> stackPositionRef;
         std::string cardRef;
         std::string phaseRef;
+        std::vector<CardMatcher> cardSquence;
         
         union {
             int i{0};
@@ -86,6 +97,8 @@ class Stack {
         StackType t;
         std::vector<Card>  cards;
         AttrCont attributes;
+
+        bool EqualsSequenceExactly(std::vector<CardMatcher> sequence, bool reverse=false);
 };
 
 class Card {
