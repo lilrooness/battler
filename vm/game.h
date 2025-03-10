@@ -41,6 +41,16 @@ enum class StackType {
     FLAT_HIDDEN
 };
 
+enum class CardMatcherType {
+    ID, ANY, REST
+};
+
+class CardMatcher {
+public:
+    CardMatcherType type;
+    int id;
+};
+
 class Attr {
     public:
         Attr() {}
@@ -51,7 +61,7 @@ class Attr {
         std::tuple<int, int> stackPositionRef;
         std::string cardRef;
         std::string phaseRef;
-        std::vector<int> cardSquence;
+        std::vector<CardMatcher> cardSquence;
         
         union {
             int i{0};
@@ -87,6 +97,8 @@ class Stack {
         StackType t;
         std::vector<Card>  cards;
         AttrCont attributes;
+
+        bool EqualsSequenceExactly(std::vector<CardMatcher> sequence, bool reverse=false);
 };
 
 class Card {

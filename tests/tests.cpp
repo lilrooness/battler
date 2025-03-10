@@ -904,7 +904,7 @@ TEST(VMTest, nesetedIfElseInIfElse)
     EXPECT_EQ(p.game().stacks[1].cards.size(), 6);
 }
 
-TEST(VMTtest, assignAndTestSequence)
+TEST(VMTtest, TestExactSequence)
 {
     auto lines = std::vector<std::string>() =
     {
@@ -929,5 +929,61 @@ TEST(VMTtest, assignAndTestSequence)
     Battler::Program p;
     p.Compile(lines);
     p.Run();
-    EXPECT_EQ(p.game().stacks[0].cards.size(), 5);
+    EXPECT_EQ(p.game().stacks[0].cards.size(), 6);
+}
+
+TEST(VMTtest, testStartSequence)
+{
+    auto lines = std::vector<std::string>() =
+     {
+         "game test start",
+             "visiblestack a",
+             "card A start end",
+             "card B start end",
+             "card C start end",
+             "card D start end",
+
+             "place D -> a 5",
+             "place C -> a 1",
+             "place B -> a 1",
+             "place A -> a 1",
+
+             "if a == [A B C D :] start",
+                "place A -> a 2",
+             "end",
+         "end"
+     };
+
+    Battler::Program p;
+    p.Compile(lines);
+    p.Run();
+    EXPECT_EQ(p.game().stacks[0].cards.size(), 10);
+}
+
+TEST(VMTtest, testWildcardSequence)
+{
+    auto lines = std::vector<std::string>() =
+     {
+         "game test start",
+             "visiblestack a",
+             "card A start end",
+             "card B start end",
+             "card C start end",
+             "card D start end",
+
+             "place D -> a 5",
+             "place A -> a 1",
+             "place B -> a 1",
+             "place A -> a 1",
+
+             "if a == [A B _ D :] start",
+                "place A -> a 2",
+             "end",
+         "end"
+     };
+
+    Battler::Program p;
+    p.Compile(lines);
+    p.Run();
+    EXPECT_EQ(p.game().stacks[0].cards.size(), 10);
 }

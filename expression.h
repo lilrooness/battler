@@ -22,6 +22,8 @@ namespace Battler {
         // OPERATAOR,
         FACTOR,
         CARD_SEQUENCE, // [A B C D]
+        CARD_SEQUENCE_MATCH_ANYCARD,
+        CARD_SEQUENCE_MATCH_REST,
         ADDITION,
         MULTIPLICATION,
         DIVISION,
