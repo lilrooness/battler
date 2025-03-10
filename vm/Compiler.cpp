@@ -993,7 +993,7 @@ int Program::run(Opcode code, bool load)
 		{
 			Opcode currentCode = m_opcodes[m_current_opcode_index];
 
-			if (firstLoop || currentCode.type == OpcodeType::ELSE_IF_BLK_HEADER)
+			if (firstLoop || (currentCode.type == OpcodeType::ELSE_IF_BLK_HEADER && depth == 0))
 			{
 				m_current_opcode_index++;
 				foundExecutableBlock = resolve_bool_expression();
@@ -1009,7 +1009,7 @@ int Program::run(Opcode code, bool load)
 				}
 
 			}
-			else if (currentCode.type == OpcodeType::ELSE_BLK_HEADER)
+			else if (currentCode.type == OpcodeType::ELSE_BLK_HEADER && depth == 0)
 			{
 				foundExecutableBlock = true;
 				m_current_opcode_index++;
@@ -1045,6 +1045,8 @@ int Program::run(Opcode code, bool load)
 	{
 		// we're here because we just executed part of an if / else block, and now we need to skip the rest of it
 		m_depth--;
+		m_proc_mode_stack.pop_back();
+		m_block_name_stack.pop_back();
 		ignore_block();
 	}
 	else if (code.type == OpcodeType::FOREACHPLAYER_BLK_HEADER)
