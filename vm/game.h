@@ -18,7 +18,7 @@ namespace Battler {
 class Card;
 class AttributeContainer;
 
-enum class AttributeType {INT, FLOAT, STRING, BOOL, CARD_REF, STACK_REF, PLAYER, PLAYER_REF, PHASE_REF, STACK_POSITION_REF, UNDEFINED};
+enum class AttributeType {INT, FLOAT, STRING, BOOL, CARD_REF, STACK_REF, PLAYER, PLAYER_REF, PHASE_REF, STACK_POSITION_REF, CARD_SEQUENCE, UNDEFINED};
 enum class Scope {LOCAL, GAME};
 
 using std::cout;
@@ -51,6 +51,7 @@ class Attr {
         std::tuple<int, int> stackPositionRef;
         std::string cardRef;
         std::string phaseRef;
+        std::vector<int> cardSquence;
         
         union {
             int i{0};

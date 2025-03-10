@@ -21,6 +21,7 @@ namespace Battler {
         // EXPRESSION,
         // OPERATAOR,
         FACTOR,
+        CARD_SEQUENCE, // [A B C D]
         ADDITION,
         MULTIPLICATION,
         DIVISION,

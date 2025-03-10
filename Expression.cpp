@@ -164,6 +164,27 @@ namespace Battler {
             }
             leftFactor = Expression(ExpressionType::FACTOR, identifierTokens);
 
+        } else if (current->type == TokenType::open_sq_br) {
+            // expect card sequence here
+
+            leftFactor = Expression(ExpressionType::CARD_SEQUENCE, {*current});
+
+            ensureNoEOF(++current, end);
+
+            if (current->type != TokenType::close_sq_br && current->type != TokenType::name) {
+                throw UnexpectedTokenException(*(current +1), "expecting a valid card squence here, but didn't get one");
+            }
+
+            while (current != end && current->type != TokenType::close_sq_br) {
+                ensureTokenType(TokenType::name, *current, "expected a card here");
+                auto cardIdentifierTokens = GetIdentifierTokens(current, end);
+                leftFactor.children.push_back(Expression(ExpressionType::FACTOR, cardIdentifierTokens));
+                current ++;
+            }
+
+            ensureTokenType(TokenType::close_sq_br, *current, "Expected an end to to the sequence ']' here");
+            current++;
+
         }
         else {
             throw UnexpectedTokenException(*current, "expected a value, var name or a bracketed expression here");

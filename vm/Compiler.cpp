@@ -159,6 +159,22 @@ void Program::factor_expression(Expression expr)
 
 		return;
 	}
+	else if (expr.type == ExpressionType::CARD_SEQUENCE)
+	{
+		Opcode CS_START;
+		CS_START.type = OpcodeType::CARD_SEQUENCE_START;
+		Opcode CS_END;
+		CS_END.type = OpcodeType::CARD_SEQUENCE_END;
+
+		m_opcodes.push_back(CS_START);
+		for (auto c : expr.children)
+		{
+			compile_name(c.tokens, true);
+		}
+		m_opcodes.push_back(CS_END);
+
+		return;
+	}
 
 	auto left_expr = expr.children[0];
 	auto right_expr = expr.children[1];

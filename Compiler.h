@@ -87,6 +87,9 @@ enum class OpcodeType
     DYNAMIC_IDENTIFIER_RESOLTION_NAMES,
     DYNAMIC_IDENTIFIER_RESOLUTION_END,
 
+    CARD_SEQUENCE_START,
+    CARD_SEQUENCE_END,
+
     // indication of a stack transfer
     STACK_TRANSFER,
     // User interaction indicator in stack transfer
