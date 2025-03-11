@@ -1638,7 +1638,7 @@ int get_stored_string_index(Opcode stringOpcode)
 void Program::read_name(vector<string>& names, OpcodeType nameType)
 {
 	int idx = m_current_opcode_index;
-    if (m_opcodes[idx].type == OpcodeType::L_VALUE || m_opcodes[idx].type == OpcodeType::R_VALUE)
+    if (m_opcodes[idx].type == OpcodeType::L_VALUE || m_opcodes[idx].type == OpcodeType::R_VALUE || m_opcodes[idx].type == OpcodeType::R_VALUE_REF)
     {
         int stringNameIdx = get_stored_string_index(m_opcodes[idx]);
         names.push_back(m_strings[stringNameIdx]);
