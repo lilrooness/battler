@@ -1889,7 +1889,7 @@ bool Program::compare_attrs(Attr a, Attr b) {
 
         if (b.type == AttributeType::CARD_SEQUENCE)
         {
-            return m_game.stacks[a.stackRef].EqualsSequenceExactly(b.cardSquence);
+            return m_game.stacks[a.stackRef].MatchesSequence(b.cardSquence);
         }
 
         throw VMError("Stack References may only be compared to card sequences or other stack references");

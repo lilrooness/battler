@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <vector>
 #include <string>
+#include <algorithm>
 
 #include "../Compiler.h"
 #include "../expression.h"
@@ -986,4 +987,88 @@ TEST(VMTtest, testWildcardSequence)
     p.Compile(lines);
     p.Run();
     EXPECT_EQ(p.game().stacks[0].cards.size(), 10);
+}
+
+TEST(GameTest, MatchesSequence)
+{
+    Battler::Stack s;
+    Battler::Card c1;
+    c1.ID = 1;
+
+    Battler::Card c2;
+    c2.ID = 2;
+
+    Battler::Card c3;
+    c3.ID = 3;
+
+    Battler::Card c4;
+    c4.ID = 4;
+
+    Battler::Card c5;
+    c5.ID = 5;
+
+    Battler::Card c6;
+    c6.ID = 6;
+
+    Battler::Card c7;
+    c7.ID = 7;
+
+    s.cards = {c1, c2, c3, c4, c5, c6, c7};
+
+    // we want C1 to be at the top of the deck, which is the end of the vector
+    std::reverse(s.cards.begin(), s.cards.end());
+
+    // matches awkward sequence [: 1 2 3 : 6 _]
+    std::vector<Battler::CardMatcher> sequence1 = {
+        {Battler::CardMatcherType::REST, 0},
+        {Battler::CardMatcherType::ID, 1},
+        {Battler::CardMatcherType::ID, 2},
+        {Battler::CardMatcherType::ID, 3},
+        {Battler::CardMatcherType::REST, 0},
+        {Battler::CardMatcherType::ID, 6},
+        {Battler::CardMatcherType::ANY, 6}
+    };
+    EXPECT_TRUE(s.MatchesSequence(sequence1));
+
+    // does not match awkward sequence [: 1 2 3 : 7 6]
+    std::vector<Battler::CardMatcher> sequence2 = {
+        {Battler::CardMatcherType::REST, 0},
+        {Battler::CardMatcherType::ID, 1},
+        {Battler::CardMatcherType::ID, 2},
+        {Battler::CardMatcherType::ID, 3},
+        {Battler::CardMatcherType::REST, 0},
+        {Battler::CardMatcherType::ID, 7},
+        {Battler::CardMatcherType::ANY, 6}
+    };
+    EXPECT_FALSE(s.MatchesSequence(sequence2));
+
+    // [: 1 :] stack contains c1
+    std::vector<Battler::CardMatcher> sequence3 = {
+        {Battler::CardMatcherType::REST, 0},
+        {Battler::CardMatcherType::ID, 1},
+        {Battler::CardMatcherType::REST, 0}
+    };
+    EXPECT_TRUE(s.MatchesSequence(sequence3));
+
+    // [: 10 :] stack does not contain c10 (c10 does not exist)
+    std::vector<Battler::CardMatcher> sequence4 = {
+        {Battler::CardMatcherType::REST, 0},
+        {Battler::CardMatcherType::ID, 10},
+        {Battler::CardMatcherType::REST, 0}
+    };
+    EXPECT_FALSE(s.MatchesSequence(sequence4));
+
+    // matches [1 2 3 4 5 6 7 :]
+    std::vector<Battler::CardMatcher> sequence5 = {
+        {Battler::CardMatcherType::ID, 1},
+        {Battler::CardMatcherType::ID, 2},
+        {Battler::CardMatcherType::ID, 3},
+        {Battler::CardMatcherType::ID, 4},
+        {Battler::CardMatcherType::ID, 5},
+        {Battler::CardMatcherType::ID, 6},
+        {Battler::CardMatcherType::ID, 7},
+        {Battler::CardMatcherType::REST, 0},
+    };
+    EXPECT_TRUE(s.MatchesSequence(sequence5));
+
 }

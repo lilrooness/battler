@@ -98,7 +98,7 @@ class Stack {
         std::vector<Card>  cards;
         AttrCont attributes;
 
-        bool EqualsSequenceExactly(std::vector<CardMatcher> sequence, bool reverse=false);
+        bool MatchesSequence(std::vector<CardMatcher> sequence, bool searchBottomUp=false);
 };
 
 class Card {

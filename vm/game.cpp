@@ -1,4 +1,7 @@
+#include <algorithm>
 #include "game.h"
+
+#include "../Compiler.h"
 
 namespace Battler {
 
@@ -104,10 +107,7 @@ namespace Battler {
         cout << attributeCont.ToString("    ") << endl;
     }
 
-    bool Stack::EqualsSequenceExactly(std::vector<CardMatcher> sequence, bool reverse/*=false*/) {
-        if (cards.size() < sequence.size()-1) {
-            return false;
-        }
+    bool Stack::MatchesSequence(std::vector<CardMatcher> sequence, bool searchBottomUp/*=false*/) {
 
         if (cards.empty() && sequence.empty())
         {
@@ -116,29 +116,82 @@ namespace Battler {
 
         // In the sequence [A B C D], A compares to the top of the stack, and D the bottom.
         // stacks are arranged so the top of the stack is the end of the vector, so we must reverse the
-        // sequence before we compare. a reverse == true here means that we want to compare [D C B A] to the stack
-        // (D being compared to the top card, and A being compared to the bottom card)
-        if (!reverse) {
-            std::reverse(sequence.begin(), sequence.end());
+        // stack before we compare. a searchBottomUp == true here means that we want to compare [D C B A] to the stack
+        // (D being compared to the top card, and A being compared to the bottom card), so we would not reverse the stack
+        // in that case
+        std::vector<Card> cardsToTestAgainst = cards;
+        if (!searchBottomUp) {
+            std::reverse(cardsToTestAgainst.begin(), cardsToTestAgainst.end());
         }
 
-        for (int i=0; i<sequence.size(); i++)
+        auto currentCard = cardsToTestAgainst.begin();
+        auto cardsEnd = cardsToTestAgainst.end();
+
+        auto currentMatcher = sequence.begin();
+        auto matchersEnd = sequence.end();
+
+        while (currentMatcher != matchersEnd)
         {
-            if (sequence[i].type == CardMatcherType::ANY)
+            if (currentMatcher->type == CardMatcherType::ANY)
             {
-                continue;
+                if (currentCard == cardsEnd)
+                {
+                    return false;
+                }
             }
-            else if (sequence[i].type == CardMatcherType::ID && sequence[i].id != cards[i].ID)
+            else if (currentMatcher->type == CardMatcherType::ID)
             {
-                return false;
+                if (currentCard == cardsEnd)
+                {
+                    return false;
+                }
+                if (currentCard->ID != currentMatcher->id)
+                {
+                    return false;
+                }
             }
-            else if (sequence[i].type == CardMatcherType::REST)
+            else if (currentMatcher->type == CardMatcherType::REST)
             {
-                break;
+
+                // ending on a match rest, means by definition we are matching whatever is left in the stack
+                if (currentMatcher+1 == matchersEnd)
+                {
+                    return true;
+                }
+
+                currentMatcher++;
+                bool foundMatchingCardForNextMatcher = false;
+                while (!foundMatchingCardForNextMatcher && currentCard != cardsEnd)
+                {
+                    if (currentMatcher->type == CardMatcherType::REST)
+                    {
+                        throw VMError("Cannot match sequence. Cannot have two consecutive REST matchers");
+                    }
+
+                    if (currentMatcher->type == CardMatcherType::ANY || currentMatcher->id == currentCard->ID)
+                    {
+                        foundMatchingCardForNextMatcher = true;
+                    }
+                    else
+                    {
+                        currentCard++;
+                    }
+                }
+
+                if (!foundMatchingCardForNextMatcher)
+                {
+                    return false;
+                }
             }
+            else
+            {
+                throw VMError("Cannot match sequence. Encountered Unsupported card matcher type");
+            }
+
+            currentMatcher++;
+            currentCard++;
         }
 
         return true;
     }
-
 }
