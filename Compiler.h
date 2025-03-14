@@ -83,6 +83,11 @@ enum class OpcodeType
     STACK_CUT_SOURCE_CHOICE_GATHER,
     STACK_CUT_SOURCE_MULTI_GATHER,
 
+    STACK_TO_CONSTRAINT,
+    STACK_TO_NO_CONSTRAINT,
+    STACK_FROM_CONSTRAINT,
+    STACK_FROM_NO_CONSTRAINT,
+
     DYNAMIC_IDENTIFIER_RESOLUTION_START,
     DYNAMIC_IDENTIFIER_RESOLTION_NAMES,
     DYNAMIC_IDENTIFIER_RESOLUTION_END,
@@ -223,6 +228,7 @@ class Program
 public:
     Program() : m_depth(0), m_current_opcode_index(0), m_stack_move_callback(nullptr) {};
     void _Parse(vector<string>);
+    void CompileExpression(Expression);
     void Compile(vector<string>);
     int Run(bool load = false);
     int RunSetup();
@@ -238,6 +244,7 @@ public:
     Game& game();
     inline vector<Token> _Tokens() {return m_tokens;}
     inline Expression _GetRootExpression() {return m_rootExpression;}
+
 
 private:
     //compiled data
@@ -276,7 +283,7 @@ private:
     void ignore_block();
     bool is_block_start();
     bool is_block_end();
-    void compile_expression(Expression);
+
     void compile_factor_from_number(int number);
 
     //copied from run.h

@@ -507,6 +507,94 @@ namespace Battler {
         expr.children.push_back(operationExpr);
         expr.children.push_back(targetStackExpr);
 
+        // ensureNoEOF(++current, end);
+
+        Expression fromExprParent;
+        Expression toExprParent;
+        if ((current+1) != end && (current+1)->text == "where")
+        {
+            bool foundFromClause = false;
+            bool foundToClause = false;
+
+            bool finished = false;
+
+            Expression fromExpr;
+            Expression toExpr;
+
+            current +=2;
+
+            while (!finished)
+            {
+                if (!foundFromClause && current->text == "from")
+                {
+                    ensureTokenType(TokenType::open_brace, *(++current), "Expectated a '{' here");
+                    ensureNoEOF(++current, end);
+                    fromExpr = GetFactorExpression(current, end);
+                    foundFromClause = true;
+                    ensureTokenType(TokenType::close_brace, *(++current), "Expected a '}' here");
+                    if (foundToClause || (current+1)->type != TokenType::comma)
+                    {
+                        finished = true;
+                    }
+                    else
+                    {
+                        current +=2;
+                    }
+                }
+                else if (!foundToClause && current->text == "to")
+                {
+                    ensureTokenType(TokenType::open_brace, *(++current), "Expectated a '{' here");
+                    ensureNoEOF(++current, end);
+                    toExpr = GetFactorExpression(current, end);
+                    foundToClause = true;
+                    ensureTokenType(TokenType::close_brace, *(++current), "Expected a '}' here");
+                    if (foundFromClause || (current+1)->type != TokenType::comma)
+                    {
+                        finished = true;
+                    }
+                    else
+                    {
+                        current +=2;
+                    }
+                }
+            }
+
+
+            fromExprParent.type = ExpressionType::WHERE_FROM_TRANSFER_CONTRAINT;
+            toExprParent.type = ExpressionType::WHERE_TO_TRANSFER_CONTRAINT;
+
+            Expression none;
+            none.type = ExpressionType::NONE;
+
+            if (foundFromClause)
+            {
+                fromExprParent.children.push_back(fromExpr);
+            }
+            else
+            {
+                fromExprParent.children.push_back(none);
+            }
+            if (foundToClause)
+            {
+                toExprParent.children.push_back(toExpr);
+            }
+            else
+            {
+                toExprParent.children.push_back(none);
+            }
+        }
+        else
+        {
+            Expression none;
+            none.type = ExpressionType::NONE;
+            toExprParent.children.push_back(none);
+            fromExprParent.children.push_back(none);
+        }
+        expr.children.push_back(fromExprParent);
+        expr.children.push_back(toExprParent);
+
+
+
         return expr;
     }
 

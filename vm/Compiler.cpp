@@ -45,7 +45,7 @@ void Program::Compile(vector<string> lines)
     _Parse(lines);
     auto tokens_begin = m_tokens.begin();
 	m_rootExpression = GetExpression(tokens_begin, m_tokens.end());
-	compile_expression(m_rootExpression);
+	CompileExpression(m_rootExpression);
 }
 
 #define NAME_IS_LVALUE true
@@ -287,7 +287,7 @@ void EnsureValidBooleanExpression(Expression booleanExpression)
 	}
 }
 
-void Program::compile_expression(Expression expr)
+void Program::CompileExpression(Expression expr)
 {
 	if (expr.type == ExpressionType::GAME_DECLARATION)
 	{
@@ -306,7 +306,7 @@ void Program::compile_expression(Expression expr)
 		m_opcodes.push_back(start);
 		expr.children.pop_back();
 		for (auto e : expr.children) {
-			compile_expression(e);
+			CompileExpression(e);
 		}
 		m_opcodes.push_back(end);
 	}
@@ -321,7 +321,7 @@ void Program::compile_expression(Expression expr)
 		m_setup_index = (int) m_opcodes.size()-1;
 		for (auto e : expr.children)
 		{
-			compile_expression(e);
+			CompileExpression(e);
 		}
 		m_opcodes.push_back(end);
 	}
@@ -336,7 +336,7 @@ void Program::compile_expression(Expression expr)
 		m_turn_index = (int) m_opcodes.size()-1;
 		for (auto e : expr.children)
 		{
-			compile_expression(e);
+			CompileExpression(e);
 		}
 		m_opcodes.push_back(end);
 	}
@@ -357,7 +357,7 @@ void Program::compile_expression(Expression expr)
 		m_phase_indexes[phase_name] = (int) m_opcodes.size()-1;
 		for (auto e : expr.children)
 		{
-			compile_expression(e);
+			CompileExpression(e);
 		}
 		m_opcodes.push_back(end);
 	}
@@ -434,19 +434,19 @@ void Program::compile_expression(Expression expr)
 		factor_expression(booleanExpression);
 		for (auto e : expressionsInIfBlock)
 		{
-			compile_expression(e);
+			CompileExpression(e);
 		}
 
 		if (elseIfIndexesStart > -1)
 		{
 			for (int i=elseIfIndexesStart; i<expr.children.size(); i++)
 			{
-				compile_expression(expr.children[i]);
+				CompileExpression(expr.children[i]);
 			}
 		}
 		else if (elseIndex > -1)
 		{
-			compile_expression(expr.children[elseIndex]);
+			CompileExpression(expr.children[elseIndex]);
 		}
 
 		m_opcodes.push_back(end);
@@ -463,7 +463,7 @@ void Program::compile_expression(Expression expr)
 		factor_expression(booleanExpression);
 		for (auto e : vector(expr.children.begin()+1, expr.children.end()))
 		{
-			compile_expression(e);
+			CompileExpression(e);
 		}
 	}
 	else if (expr.type == ExpressionType::ELSE_DECLARATION)
@@ -476,7 +476,7 @@ void Program::compile_expression(Expression expr)
 
 		for (auto e : vector(expr.children.begin(), expr.children.end()))
 		{
-			compile_expression(e);
+			CompileExpression(e);
 		}
 	}
 	else if (expr.type == ExpressionType::FOREACHPLAYER_DECLARATION)
@@ -499,7 +499,7 @@ void Program::compile_expression(Expression expr)
 		m_opcodes.push_back(forEachHeaderCode);
 		for (auto e : expr.children)
 		{
-			compile_expression(e);
+			CompileExpression(e);
 		}
 		m_opcodes.push_back(end);
 	}
@@ -508,6 +508,9 @@ void Program::compile_expression(Expression expr)
         Expression sourceStackExpr = expr.children[0];
         Expression operationExpr = expr.children[1];
         Expression targetStackExpr = expr.children[2];
+
+		auto toConstraintExpr = expr.children.back(); // last
+		auto fromConstraintExpr = *(expr.children.end()-2); // second from last
 
         Opcode stackTransfer; // transfer operation
         Opcode sourceStackOpcode; // Source Stack Identifier "a", "a,b"
@@ -598,8 +601,17 @@ void Program::compile_expression(Expression expr)
         {
             compile_name(sourceStackExpr.tokens, NAME_IS_LVALUE);
         }
-        m_opcodes.push_back(Opcode(OpcodeType::STACK_SOURCE_LOCATION));
-        m_opcodes.push_back(sourceLocationOpcode);
+		if (fromConstraintExpr.children[0].type == ExpressionType::NONE)
+		{
+			m_opcodes.push_back(Opcode(OpcodeType::STACK_FROM_NO_CONSTRAINT));
+		}
+		else
+		{
+			m_opcodes.push_back(Opcode(OpcodeType::STACK_FROM_CONSTRAINT));
+			factor_expression(fromConstraintExpr.children[0]);
+		}
+		m_opcodes.push_back(Opcode(OpcodeType::STACK_SOURCE_LOCATION));
+		m_opcodes.push_back(sourceLocationOpcode);
 
         // we don't expect a number on this expression
         // choose a /> b top
@@ -626,6 +638,15 @@ void Program::compile_expression(Expression expr)
         {
             compile_name(targetStackExpr.children[0].tokens, NAME_IS_LVALUE);
         }
+		if (toConstraintExpr.children[0].type == ExpressionType::NONE)
+		{
+			m_opcodes.push_back(Opcode(OpcodeType::STACK_TO_NO_CONSTRAINT));
+		}
+		else
+		{
+			m_opcodes.push_back(Opcode(OpcodeType::STACK_TO_CONSTRAINT));
+			factor_expression(toConstraintExpr.children[0]);
+		}
         m_opcodes.push_back(Opcode(OpcodeType::STACK_DESTINATION_LOCATION));
         m_opcodes.push_back(targetLocationOpcode);
 	}
@@ -669,7 +690,7 @@ void Program::compile_expression(Expression expr)
 		expr.children.pop_back();
 
 		for (auto e : expr.children) {
-			compile_expression(e);
+			CompileExpression(e);
 		}
 
 		Opcode end;
@@ -1216,6 +1237,8 @@ int Program::run(Opcode code, bool load)
      * --
      * IDENTIFIER(S)
      * --
+     * FROM_CONSTRAINT + FACTOR / NO_FROM_CONSTRAINT
+     * --
      * STACK_SOURCE_LOCATION
      * --
      * source location TOP/BOTTOM/CHOOSE
@@ -1229,6 +1252,8 @@ int Program::run(Opcode code, bool load)
      * TARGET IDENTIFIER | CHOOSE
      * --
      * IDENTIFIER(S)
+     * --
+     *  TO_CONSTRAINT + FACTOR / NO_TO_CONSTRAINT
      * --
      * STACK_DESTINATION_LOCATION
      * --
@@ -1254,6 +1279,34 @@ int Program::run(Opcode code, bool load)
                 source_ids_to_select_from.push_back(stackName->stackRef);
             }
 
+        	if (m_opcodes[m_current_opcode_index].type == OpcodeType::STACK_FROM_NO_CONSTRAINT)
+        	{
+        		m_current_opcode_index++;
+        	}
+        	else
+        	{
+        		m_current_opcode_index++;
+        		int booleanExpressionIndexStart = m_current_opcode_index;
+				vector<int> new_source_ids_to_select_from;
+        		for (int id : source_ids_to_select_from)
+        		{
+        			m_current_opcode_index = booleanExpressionIndexStart;
+        			AttrCont cont;
+        			Attr fromStackRef;
+        			fromStackRef.type = AttributeType::STACK_REF;
+        			fromStackRef.stackRef = id;
+        			cont.Store("from", fromStackRef);
+        			m_locale_stack.push_back(cont);
+					if(resolve_bool_expression())
+					{
+						new_source_ids_to_select_from.push_back(id);
+					}
+
+        			m_locale_stack.pop_back();
+        		}
+        		source_ids_to_select_from = new_source_ids_to_select_from;
+        	}
+
             m_stackTransferStateTracker.sourceStackSelectionPool = source_ids_to_select_from;
             m_stackTransferStateTracker.type = InputOperationType::CHOOSE_SOURCE;
             m_waitingForUserInteraction = true;
@@ -1266,6 +1319,14 @@ int Program::run(Opcode code, bool load)
             read_name(sourceIdentifier, m_opcodes[m_current_opcode_index].type);
             Attr* stackName = this->get_attr_ptr(sourceIdentifier);
             m_stackTransferStateTracker.srcStackID = stackName->stackRef;
+
+        	if (m_opcodes[m_current_opcode_index].type == OpcodeType::STACK_FROM_NO_CONSTRAINT)
+        	{
+        		m_current_opcode_index++;
+        	}
+        	else {
+        		throw VMError("You can only use from constraints on transfers where you choose from multiple source stacks");
+        	}
         }
         else if (sourceOpcode.type == OpcodeType::RANDOM)
         {
@@ -1276,6 +1337,14 @@ int Program::run(Opcode code, bool load)
             assert(card_type.size() == 1);
             m_stackTransferStateTracker.randomSource = true;
             m_stackTransferStateTracker.randomSourceParentCard = card_type[0];
+
+        	if (m_opcodes[m_current_opcode_index].type == OpcodeType::STACK_FROM_NO_CONSTRAINT)
+        	{
+        		m_current_opcode_index++;
+        	}
+        	else {
+        		throw VMError("You can only use from constraints on transfers where you choose from multiple source stacks");
+        	}
         }
     	else if (sourceOpcode.type == OpcodeType::SPECIFIC_CARD)
     	{
@@ -1288,6 +1357,14 @@ int Program::run(Opcode code, bool load)
     		Card c = m_game.GenerateCard(card_type[0]);
     		m_stackTransferStateTracker.specificCardName = card_type[0];
     		m_stackTransferStateTracker.specificCardGeneration = true;
+
+    		if (m_opcodes[m_current_opcode_index].type == OpcodeType::STACK_FROM_NO_CONSTRAINT)
+    		{
+    			m_current_opcode_index++;
+    		}
+    		else {
+    			throw VMError("You can only use from constraints on transfers where you choose from multiple source stacks");
+    		}
     	}
     }
     else if (code.type == OpcodeType::STACK_SOURCE_LOCATION) {
@@ -1376,6 +1453,43 @@ int Program::run(Opcode code, bool load)
                 dest_ids_to_select_from.push_back(stackName->stackRef);
             }
 
+        	if (m_opcodes[m_current_opcode_index].type == OpcodeType::STACK_TO_NO_CONSTRAINT)
+        	{
+        		m_current_opcode_index++;
+        	}
+        	else
+        	{
+        		m_current_opcode_index++;
+        		int booleanExpressionIndexStart = m_current_opcode_index;
+        		vector<int> new_dest_ids_to_select_from;
+        		for (int id : dest_ids_to_select_from)
+        		{
+        			m_current_opcode_index = booleanExpressionIndexStart;
+
+        			Attr toStackRef;
+        			toStackRef.type = AttributeType::STACK_REF;
+        			toStackRef.stackRef = id;
+
+					Attr fromStackRef;
+        			fromStackRef.type = AttributeType::STACK_REF;
+        			fromStackRef.stackRef = m_stackTransferStateTracker.srcStackID;
+
+        			AttrCont cont;
+        			cont.Store("to", toStackRef);
+        			cont.Store("from", fromStackRef);
+
+        			m_locale_stack.push_back(cont);
+        			if(resolve_bool_expression())
+        			{
+        				new_dest_ids_to_select_from.push_back(id);
+        			}
+
+        			m_locale_stack.pop_back();
+        		}
+
+        		dest_ids_to_select_from = new_dest_ids_to_select_from;
+        	}
+
             m_stackTransferStateTracker.destinationStackSelectionPool = dest_ids_to_select_from;
             m_stackTransferStateTracker.type = InputOperationType::CHOOSE_DESTINATION;
             m_waitingForUserInteraction = true;
@@ -1388,6 +1502,15 @@ int Program::run(Opcode code, bool load)
             read_name(destinationIdentifier, m_opcodes[m_current_opcode_index].type);
             Attr* stackName = this->get_attr_ptr(destinationIdentifier);
             m_stackTransferStateTracker.dstStackID = stackName->stackRef;
+
+        	if (m_opcodes[m_current_opcode_index].type == OpcodeType::STACK_TO_NO_CONSTRAINT)
+        	{
+        		m_current_opcode_index++;
+        	}
+        	else
+        	{
+        		throw VMError("You can only use to constraints on transfers where you choose from multiple destination stacks");
+        	}
         }
     }
     else if (code.type == OpcodeType::STACK_DESTINATION_LOCATION)

@@ -1072,3 +1072,53 @@ TEST(GameTest, MatchesSequence)
     EXPECT_TRUE(s.MatchesSequence(sequence5));
 
 }
+
+TEST(VMTtest, testStackTransferWhereClause)
+{
+    auto lines = std::vector<std::string>() =
+    {
+        "game test start",
+            "visiblestack a",
+            "visiblestack b",
+            "visiblestack c",
+            "visiblestack d",
+
+            "card A start end",
+            "card B start end",
+
+            "place A -> b 2",
+            "place B -> d 3",
+
+            "setup start end",
+
+            "turn start",
+                "a,b -> c,d top 1 where from{from == [A A]}, to{to == [B :]}",
+            "end",
+        "end"
+    };
+    Battler::Program p;
+    p.Compile(lines);
+    EXPECT_EQ(p.Run(true), 0);
+    int WAITING_FOR_INTERACTION_RETURN = 1;
+    EXPECT_EQ(p.RunTurn(), WAITING_FOR_INTERACTION_RETURN);
+
+    EXPECT_TRUE(p.m_waitingForUserInteraction);
+    EXPECT_EQ(p.m_stackTransferStateTracker.type, Battler::InputOperationType::CHOOSE_SOURCE);
+    EXPECT_EQ(p.m_stackTransferStateTracker.sourceStackSelectionPool.size(), 1);
+    EXPECT_EQ(p.m_stackTransferStateTracker.sourceStackSelectionPool[0], 1);
+    p.m_stackTransferStateTracker.srcStackID = 1;
+    p.m_waitingForUserInteraction = false;
+
+    EXPECT_EQ(p.RunTurn(true), WAITING_FOR_INTERACTION_RETURN);
+    EXPECT_TRUE(p.m_waitingForUserInteraction);
+    EXPECT_EQ(p.m_stackTransferStateTracker.type, Battler::InputOperationType::CHOOSE_DESTINATION);
+    EXPECT_EQ(p.m_stackTransferStateTracker.destinationStackSelectionPool.size(), 1);
+    EXPECT_EQ(p.m_stackTransferStateTracker.destinationStackSelectionPool[0], 3);
+    p.m_stackTransferStateTracker.dstStackID = 3;
+    p.m_waitingForUserInteraction = false;
+    EXPECT_EQ(p.RunTurn(true), 0);
+
+    EXPECT_EQ(p.game().stacks[3].cards.size(), 4);
+
+}
+

@@ -34,6 +34,8 @@ namespace Battler {
 		comment,
         underscore,
         colon,
+		open_brace,
+		close_brace
 	};
 
 

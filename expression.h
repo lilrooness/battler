@@ -83,6 +83,9 @@ namespace Battler {
         LOOSER_DECLARATION,
         DO_DECLARATION,
         PLAYERS_DECLARATION,
+        WHERE_FROM_TRANSFER_CONTRAINT,
+        WHERE_TO_TRANSFER_CONTRAINT,
+        NONE,
         UNKNOWN,
     };
 
